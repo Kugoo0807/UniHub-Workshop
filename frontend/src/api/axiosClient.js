@@ -23,7 +23,6 @@ axiosClient.interceptors.request.use(
 // Response Interceptor: Handle 401 and global errors
 axiosClient.interceptors.response.use(
     (response) => {
-        // Simply return the data to clean up the response format
         return response.data;
     },
     async (error) => {
@@ -37,17 +36,18 @@ axiosClient.interceptors.response.use(
                 const refreshToken = localStorage.getItem('refresh_token');
                 if (!refreshToken) throw new Error("No refresh token available");
 
-                // Assuming you have an endpoint for refreshing the token
                 const refreshResponse = await axios.post(
                     `${axiosClient.defaults.baseURL}/auth/refresh`, 
-                    { token: refreshToken }
+                    { refreshToken: refreshToken }
                 );
 
-                const newAccessToken = refreshResponse.data.accessToken;
-                localStorage.setItem('access_token', newAccessToken);
+                const { accessToken, refreshToken: newRefreshToken } = refreshResponse.data;
+                localStorage.setItem('access_token', accessToken);
+                if (newRefreshToken) {
+                    localStorage.setItem('refresh_token', newRefreshToken);
+                }
 
-                // Update the original request with the new token and retry
-                originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+                originalRequest.headers['Authorization'] = `Bearer ${accessToken}`;
                 return axiosClient(originalRequest);
                 
             } catch (refreshError) {
@@ -58,7 +58,6 @@ axiosClient.interceptors.response.use(
             }
         }
 
-        // Format error message using the custom utility
         const formattedError = handleApiError(error);
         return Promise.reject(new Error(formattedError));
     }

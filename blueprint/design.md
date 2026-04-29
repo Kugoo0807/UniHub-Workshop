@@ -197,8 +197,10 @@ Lưu trữ thông tin sinh viên và tài khoản quản trị, hỗ trợ kiể
 | `student_code` | VARCHAR(20) | UNIQUE, NULLABLE | Mã số sinh viên (kiểm tra CSV) |
 | `full_name` | VARCHAR(100) | NOT NULL | Họ và tên |
 | `email` | VARCHAR(100) | UNIQUE, NOT NULL | Email đăng nhập & nhận thông báo (kiểm tra CSV) |
-| `password` | VARCHAR(255) | NOT NULL | Mật khẩu đã mã hóa (BCrypt) |
+| `phone_number` | VARCHAR(20) | UNIQUE | Số điện thoại của người dùng |
+| `password` | VARCHAR(255) | NULLABLE | Mật khẩu đã mã hóa (BCrypt) |
 | `role` | VARCHAR(20) | NOT NULL | Quyền: `STUDENT`, `ADMIN`, `STAFF` |
+| `status` | VARCHAR(20) | DEFAULT `INACTIVE` | Trạng thái: `ACTIVE`, `INACTIVE` |
 
 #### 2. Bảng `workshops` (Thông tin sự kiện)
 
