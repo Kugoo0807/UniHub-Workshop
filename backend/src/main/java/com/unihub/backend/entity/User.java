@@ -1,5 +1,6 @@
 package com.unihub.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -24,9 +25,17 @@ public class User {
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
-    @Column(nullable = false)
+    @JsonIgnore
+    @Column(length = 255)
     private String password;
 
+    @Column(name = "phone_number", unique = true, length = 15)
+    private String phoneNumber;
+
     @Column(nullable = false, length = 20)
-    private String role;    // Enum string: STUDENT, ADMIN, STAFF
+    private String role;    // STUDENT, ADMIN, STAFF
+
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private String status = "INACTIVE";  // ACTIVE, INACTIVE
 }
