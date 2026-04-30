@@ -3,6 +3,7 @@ package com.unihub.backend.exception;
 import com.unihub.backend.dto.ErrorResponse;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -12,6 +13,8 @@ import org.springframework.web.client.RestClientResponseException;
 
 import java.time.Instant;
 import java.util.stream.Collectors;
+
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -61,6 +64,11 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.BAD_GATEWAY, ex.getMessage());
     }
 
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflictException(ConflictException ex) {
+        return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     @ExceptionHandler(RestClientResponseException.class)
     public ResponseEntity<ErrorResponse> handleRestClientResponseException(RestClientResponseException ex) {
         String message = "AI Microservice Error: " + ex.getStatusText();
@@ -81,6 +89,11 @@ public class GlobalExceptionHandler {
         }
 
         return buildErrorResponse(HttpStatus.BAD_REQUEST, msg);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxSizeException(MaxUploadSizeExceededException exc) {
+        return buildErrorResponse(HttpStatus.PAYLOAD_TOO_LARGE, "File size exceeds limit");
     }
 
     @ExceptionHandler(Exception.class)

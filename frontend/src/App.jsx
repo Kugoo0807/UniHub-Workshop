@@ -14,13 +14,14 @@ import HomeStudent from './pages/HomeStudent';
 import Dashboard from './pages/Dashboard';
 import NotFoundPage from './pages/NotFoundPage';
 
+
 const App = () => {
     return (
         <AuthProvider>
             <BrowserRouter>
                 <Routes>
                     <Route element={<Layout />}>
-                        {/* Always accessible public route */}
+                        {/* Always accessible public routes */}
                         <Route path="/" element={<HomePage />} />
                         <Route path="/unauthorized" element={<UnauthorizedPage />} />
 

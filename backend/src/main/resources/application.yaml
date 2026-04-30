@@ -2,6 +2,8 @@ spring:
   application:
     name: backend
     frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  config:
+    import: optional:file:.env[.properties]
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/postgres}
