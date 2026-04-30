@@ -1,7 +1,0 @@
-HTTP/1.1 200 OK
-date: Thu, 30 Apr 2026 13:33:05 GMT
-server: uvicorn
-content-length: 1137
-content-type: application/json
-
-{"workshop_id":1,"summary":"Dưới đây là tóm tắt nội dung workshop về quy trình phát triển tính năng phối hợp với AI trong 4 câu:\n\nWorkshop hướng dẫn quy trình phát triển tính năng chuyên nghiệp gồm 4 bước, bắt đầu bằng việc xây dựng file đặc tả (Spec) chi tiết để làm \"nguồn sự thật duy nhất\" và cung cấp ngữ cảnh hệ thống đầy đủ cho AI. Ở bước lập trình, AI được sử dụng để tạo code Backend và Frontend dựa trên Spec, nhưng phải tuân thủ nghiêm ngặt kiến trúc Layered Architecture, các quy tắc bảo mật và không được tự ý thay đổi cấu trúc database. Tiếp theo, AI sẽ hỗ trợ viết Unit Test để kiểm thử toàn diện các kịch bản thành công lẫn thất bại, đảm bảo code đạt chuẩn và vượt qua các bài test local trước khi thực thi. Cuối cùng, lập trình viên tiến hành push code và tạo Pull Request theo đúng quy trình Git workflow của dự án để đảm bảo tính đồng bộ và ổn định cho hệ thống."}
