@@ -133,6 +133,7 @@ class WorkshopServiceTest {
 
     // WM-UT-04: Delete workshop with SUCCESS registrations
 
+
         // Verify Workshop deletion throws Conflict if there are successful registrations
     @Test
     void deleteWorkshop_hasSuccessRegistrations_throwsConflict() {

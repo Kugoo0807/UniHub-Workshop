@@ -24,7 +24,7 @@ const StatCard = ({ label, value, color }) => (
 
 const Dashboard = () => {
     const { user } = useAuth();
-    
+
     const stats = [
         { label: 'Total Users', value: '—', color: 'bg-indigo-600' },
         { label: 'Active Workshops', value: '—', color: 'bg-emerald-500' },
@@ -72,7 +72,7 @@ const Dashboard = () => {
             }
         };
     }, []);
-    
+
     // Update stats value when workshops load
     stats[1].value = workshops.length.toString();
 
@@ -280,13 +280,12 @@ const Dashboard = () => {
                                         <div className="text-xs text-gray-400">→ {formatDateTime(w.endTime)}</div>
                                     </td>
                                     <td className="px-4 py-3 text-center">
-                                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                            w.remainingSlots === 0
+                                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${w.remainingSlots === 0
                                                 ? 'bg-red-100 text-red-700'
                                                 : w.remainingSlots <= w.totalSlots * 0.2
                                                     ? 'bg-amber-100 text-amber-700'
                                                     : 'bg-green-100 text-green-700'
-                                        }`}>
+                                            }`}>
                                             {w.remainingSlots}/{w.totalSlots}
                                         </span>
                                     </td>
@@ -392,10 +391,9 @@ const Dashboard = () => {
                         <div className="mt-3">
                             <div className="h-2.5 w-full rounded-full bg-gray-200 overflow-hidden">
                                 <div
-                                    className={`h-full rounded-full transition-all ${
-                                        statsData.fillRate >= 90 ? 'bg-red-500' :
-                                        statsData.fillRate >= 60 ? 'bg-amber-500' : 'bg-emerald-500'
-                                    }`}
+                                    className={`h-full rounded-full transition-all ${statsData.fillRate >= 90 ? 'bg-red-500' :
+                                            statsData.fillRate >= 60 ? 'bg-amber-500' : 'bg-emerald-500'
+                                        }`}
                                     style={{ width: `${Math.min(statsData.fillRate, 100)}%` }}
                                 />
                             </div>
@@ -418,7 +416,7 @@ const Dashboard = () => {
                     <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
                         <h3 className="text-lg font-bold text-gray-900 mb-2">Upload PDF for AI Summary</h3>
                         <p className="text-sm text-gray-500 mb-4">{aiWorkshop.title}</p>
-                        
+
                         {aiSuccessMessage ? (
                             <div className="mb-4 rounded-lg bg-green-50 p-4 text-sm text-green-700">
                                 {aiSuccessMessage}

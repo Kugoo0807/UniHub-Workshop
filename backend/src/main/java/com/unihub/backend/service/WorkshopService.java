@@ -38,8 +38,6 @@ public class WorkshopService {
         return toResponse(workshop);
     }
 
-
-
     @Transactional
     public WorkshopResponse createWorkshop(WorkshopRequest request) {
         validateTimeRange(request.startTime(), request.endTime());
@@ -73,7 +71,8 @@ public class WorkshopService {
                 throw new ConflictException(
                         "Cannot change total_slots because registrations already exist for this workshop");
             }
-            // Update remaining_slots to match new total_slots since there are no registrations
+            // Update remaining_slots to match new total_slots since there are no
+            // registrations
             workshop.setRemainingSlots(request.totalSlots());
         }
 
