@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import workshopService from '../services/workshopService';
 import { useAuth } from '../context/AuthContext';
 import WorkshopFormModal from '../components/workshops/WorkshopFormModal';
@@ -47,20 +47,31 @@ const Dashboard = () => {
     const [aiUploading, setAiUploading] = useState(false);
     const [aiSuccessMessage, setAiSuccessMessage] = useState('');
 
-    const fetchWorkshops = useCallback(async () => {
+    const aiPollRef = useRef({ cancelled: false, timeoutId: null });
+
+    const fetchWorkshops = useCallback(async ({ silent = false } = {}) => {
         try {
-            setLoading(true);
+            if (!silent) setLoading(true);
             setError('');
             const data = await workshopService.getAll();
             setWorkshops(data);
         } catch (err) {
             setError(err.message);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, []);
 
     useEffect(() => { fetchWorkshops(); }, [fetchWorkshops]);
+
+    useEffect(() => {
+        return () => {
+            aiPollRef.current.cancelled = true;
+            if (aiPollRef.current.timeoutId) {
+                clearTimeout(aiPollRef.current.timeoutId);
+            }
+        };
+    }, []);
     
     // Update stats value when workshops load
     stats[1].value = workshops.length.toString();
@@ -112,6 +123,39 @@ const Dashboard = () => {
         }
     };
 
+    const pollAiDescriptionUpdate = useCallback(async (workshopId, previousDescription) => {
+        const startTime = Date.now();
+        const maxWaitMs = 120_000; // Tăng lên 2 phút
+        const intervalMs = 3_000; // Kiểm tra mỗi 3 giây
+
+        const pollOnce = async () => {
+            if (aiPollRef.current.cancelled) return;
+            if (Date.now() - startTime > maxWaitMs) {
+                console.log("Polling timed out");
+                return;
+            }
+
+            try {
+                const latest = await workshopService.getById(workshopId);
+                const latestDescription = (latest?.description || '').trim();
+                const prev = (previousDescription || '').trim();
+
+                if (latestDescription && latestDescription !== prev) {
+                    console.log("AI summary detected! Updating UI...");
+                    await fetchWorkshops({ silent: true });
+                    setAiSuccessMessage("AI summary has been updated successfully!");
+                    return;
+                }
+            } catch (_) {
+                // Ignore transient errors; keep polling until timeout.
+            }
+
+            aiPollRef.current.timeoutId = setTimeout(pollOnce, intervalMs);
+        };
+
+        pollOnce();
+    }, [fetchWorkshops]);
+
     const handleOpenAiUpload = (workshop) => {
         setAiWorkshop(workshop);
         setAiFile(null);
@@ -129,12 +173,22 @@ const Dashboard = () => {
             setAiUploading(true);
             setError('');
             setAiSuccessMessage('');
+
+            // Reset any previous poll.
+            if (aiPollRef.current.timeoutId) clearTimeout(aiPollRef.current.timeoutId);
+            aiPollRef.current.cancelled = false;
+
+            const previousDescription = aiWorkshop?.description || '';
             const res = await workshopService.uploadAiSummary(aiWorkshop.id, aiFile);
             setAiSuccessMessage(res.message || 'AI summary is being processed.');
             setAiFile(null);
+
+            // The AI endpoint is async (202). Poll until the description is actually updated in DB.
+            pollAiDescriptionUpdate(aiWorkshop.id, previousDescription);
+
             setTimeout(() => {
                 setAiUploadOpen(false);
-                fetchWorkshops();
+                fetchWorkshops({ silent: true });
             }, 3000);
         } catch (err) {
             setError(err.message || 'Upload failed');
@@ -216,7 +270,9 @@ const Dashboard = () => {
                                     <td className="px-4 py-3">
                                         <div className="font-medium text-gray-900">{w.title}</div>
                                         {w.description && (
-                                            <div className="mt-0.5 text-xs text-gray-400 line-clamp-1">{w.description}</div>
+                                            <div className="mt-0.5 text-xs text-gray-500 line-clamp-2 italic" title={w.description}>
+                                                {w.description}
+                                            </div>
                                         )}
                                     </td>
                                     <td className="px-4 py-3 text-gray-600">
