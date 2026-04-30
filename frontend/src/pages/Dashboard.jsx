@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const StatCard = ({ label, value, color }) => (
@@ -17,6 +18,7 @@ const SectionCard = ({ title, children }) => (
 
 const Dashboard = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
 
     const stats = [
         { label: 'Total Users', value: '—', color: 'bg-indigo-600' },
@@ -89,8 +91,11 @@ const Dashboard = () => {
                             ))}
                         </tbody>
                     </table>
-                    <button className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition">
-                        + Create Workshop
+                    <button
+                        onClick={() => navigate('/admin/workshops')}
+                        className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition"
+                    >
+                        Manage Workshops →
                     </button>
                 </SectionCard>
 

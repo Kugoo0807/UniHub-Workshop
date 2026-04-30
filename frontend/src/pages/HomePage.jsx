@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 const HomePage = () => {
     const { user } = useAuth();
 
-    const dashboardLink = user?.role === 'ADMIN' ? '/admin' : '/student';
+    const dashboardLink = '/admin';
 
     return (
         <div className="min-h-screen bg-gray-50">

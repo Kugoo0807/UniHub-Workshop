@@ -42,6 +42,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                     .requestMatchers("/api/test").permitAll()
                     .requestMatchers("/api/v1/auth/**").permitAll()
+                    .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/workshops", "/api/v1/workshops/{id}").permitAll()
                     .requestMatchers(SWAGGER_WHITELIST).permitAll()
                     .anyRequest().authenticated()
             )
