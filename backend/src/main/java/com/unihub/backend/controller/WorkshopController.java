@@ -134,7 +134,7 @@ public class WorkshopController {
             @PathVariable Long id,
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
 
-        // 1. Kiểm tra workshop tồn tại (Throws 404 if not found)
+        // 1. Check if workshop exists (Throws 404 if not found)
         workshopService.getWorkshopById(id);
 
         // 2. Validate file
@@ -152,7 +152,7 @@ public class WorkshopController {
             throw new org.springframework.web.multipart.MaxUploadSizeExceededException(maxSize);
         }
 
-        // 3. Đọc byte ngay trên luồng chính (trước khi HTTP Request kết thúc và Tomcat xóa file tạm)
+        // 3. Read bytes on main thread (before HTTP Request completes and Tomcat deletes temp file)
         byte[] fileBytes;
         String originalFilename = file.getOriginalFilename();
         try {
@@ -161,11 +161,11 @@ public class WorkshopController {
             throw new IllegalArgumentException("Failed to read file content");
         }
 
-        // 4. Xử lý bất đồng bộ
+        // 4. Process asynchronously
         workshopAiService.generateSummaryAsync(id, fileBytes, originalFilename);
 
-        // 5. Trả về 202 Accepted
+        // 5. Return 202 Accepted
         return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(java.util.Map.of("message", "AI summary đang được xử lý, description sẽ được cập nhật sớm."));
+                .body(java.util.Map.of("message", "AI summary is being processed, description will be updated soon."));
     }
 }

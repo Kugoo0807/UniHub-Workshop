@@ -1,7 +1,7 @@
 package com.unihub.backend.service;
 
 import com.unihub.backend.repository.WorkshopRepository;
-import com.unihub.backend.service.WorkshopAiService.AiSummaryResponse;
+import com.unihub.backend.dto.ai.AiSummaryResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,8 +43,7 @@ class WorkshopAiServiceTest {
                 "file",
                 "test.pdf",
                 "application/pdf",
-                "dummy pdf content".getBytes()
-        );
+                "dummy pdf content".getBytes());
     }
 
     @Test

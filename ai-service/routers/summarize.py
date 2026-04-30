@@ -20,7 +20,7 @@ async def summarize_pdf(
         if not raw_text or len(raw_text.strip()) == 0:
             return JSONResponse(
                 status_code=400,
-                content={"error": "Không thể trích xuất nội dung từ file PDF."}
+                content={"error": "Could not extract text from PDF file."}
             )
             
         cleaned_text = clean_text(raw_text)

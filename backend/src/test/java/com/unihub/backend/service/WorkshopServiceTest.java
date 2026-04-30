@@ -36,10 +36,9 @@ class WorkshopServiceTest {
     @InjectMocks
     private WorkshopService workshopService;
 
-    // ═══════════════════════════════════════════════
-    //  WM-UT-01: Tạo workshop hợp lệ
-    // ═══════════════════════════════════════════════
+    // WM-UT-01: Create valid workshop
 
+        // Verify successful Workshop creation with valid data
     @Test
     void createWorkshop_validRequest_savesAndReturnsCreated() {
         WorkshopRequest request = validRequest();
@@ -49,7 +48,6 @@ class WorkshopServiceTest {
 
         WorkshopResponse response = workshopService.createWorkshop(request);
 
-        // Verify saved entity
         ArgumentCaptor<Workshop> captor = ArgumentCaptor.forClass(Workshop.class);
         verify(workshopRepository).save(captor.capture());
         Workshop captured = captor.getValue();
@@ -57,25 +55,24 @@ class WorkshopServiceTest {
         assertEquals(request.title(), captured.getTitle());
         assertEquals(request.description(), captured.getDescription());
         assertEquals(request.totalSlots(), captured.getTotalSlots());
-        assertEquals(request.totalSlots(), captured.getRemainingSlots()); // remaining = total
+        assertEquals(request.totalSlots(), captured.getRemainingSlots());
         assertEquals(request.price(), captured.getPrice());
         assertEquals(request.startTime(), captured.getStartTime());
         assertEquals(request.endTime(), captured.getEndTime());
 
-        // Verify response
         assertNotNull(response);
         assertEquals(1L, response.getId());
         assertEquals(request.title(), response.getTitle());
         assertEquals(request.totalSlots(), response.getRemainingSlots());
     }
 
+        // Verify Workshop creation with null price defaults to 0
     @Test
     void createWorkshop_nullPrice_defaultsToZero() {
         WorkshopRequest request = new WorkshopRequest(
                 "Test Workshop", null, 50, null,
                 LocalDateTime.of(2026, 5, 10, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 12, 0)
-        );
+                LocalDateTime.of(2026, 5, 10, 12, 0));
         Workshop saved = workshopFromRequest(request, 2L);
         saved.setPrice(BigDecimal.ZERO);
 
@@ -88,13 +85,13 @@ class WorkshopServiceTest {
         assertEquals(BigDecimal.ZERO, captor.getValue().getPrice());
     }
 
+        // Verify Workshop creation allows null description
     @Test
     void createWorkshop_nullDescription_allowsNull() {
         WorkshopRequest request = new WorkshopRequest(
                 "Workshop No Desc", null, 30, BigDecimal.ZERO,
                 LocalDateTime.of(2026, 5, 10, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 12, 0)
-        );
+                LocalDateTime.of(2026, 5, 10, 12, 0));
         Workshop saved = workshopFromRequest(request, 3L);
 
         when(workshopRepository.save(any(Workshop.class))).thenReturn(saved);
@@ -104,59 +101,57 @@ class WorkshopServiceTest {
         assertNull(response.getDescription());
     }
 
-    // ═══════════════════════════════════════════════
-    //  WM-UT-02: Tạo với end_time trước start_time
-    // ═══════════════════════════════════════════════
+    // WM-UT-02: Create with end_time before start_time
 
+        // Verify Workshop creation throws error when end time is before start time
     @Test
     void createWorkshop_endTimeBeforeStartTime_throwsIllegalArgument() {
         WorkshopRequest request = new WorkshopRequest(
                 "Bad Times", null, 30, BigDecimal.ZERO,
-                LocalDateTime.of(2026, 5, 10, 12, 0),   // start = 12:00
-                LocalDateTime.of(2026, 5, 10, 8, 0)     // end   = 08:00 (before!)
+                LocalDateTime.of(2026, 5, 10, 12, 0),
+                LocalDateTime.of(2026, 5, 10, 8, 0)
         );
 
-        IllegalArgumentException ex = assertThrows(
+        IllegalArgumentException ex =
+        assertThrows(
                 IllegalArgumentException.class,
-                () -> workshopService.createWorkshop(request)
-        );
+                () -> workshopService.createWorkshop(request));
         assertTrue(ex.getMessage().contains("end_time must be after start_time"));
         verify(workshopRepository, never()).save(any(Workshop.class));
     }
 
+        // Verify Workshop creation throws error when end time equals start time
     @Test
     void createWorkshop_endTimeEqualsStartTime_throwsIllegalArgument() {
         LocalDateTime sameTime = LocalDateTime.of(2026, 5, 10, 10, 0);
         WorkshopRequest request = new WorkshopRequest(
-                "Same Times", null, 30, BigDecimal.ZERO, sameTime, sameTime
-        );
+                "Same Times", null, 30, BigDecimal.ZERO, sameTime, sameTime);
 
         assertThrows(IllegalArgumentException.class, () -> workshopService.createWorkshop(request));
         verify(workshopRepository, never()).save(any(Workshop.class));
     }
 
-    // ═══════════════════════════════════════════════
-    //  WM-UT-04: Xóa workshop có đăng ký SUCCESS
-    // ═══════════════════════════════════════════════
+    // WM-UT-04: Delete workshop with SUCCESS registrations
 
+        // Verify Workshop deletion throws Conflict if there are successful registrations
     @Test
     void deleteWorkshop_hasSuccessRegistrations_throwsConflict() {
         Workshop existing = baseWorkshop(1L);
         when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
         when(registrationRepository.existsByWorkshopIdAndStatus(1L, "SUCCESS")).thenReturn(true);
 
-        ConflictException ex = assertThrows(
+        ConflictException ex =
+        assertThrows(
                 ConflictException.class,
-                () -> workshopService.deleteWorkshop(1L)
-        );
+                () ->
+        workshopService.deleteWorkshop(1L));
         assertTrue(ex.getMessage().contains("successful registrations"));
         verify(workshopRepository, never()).delete(any(Workshop.class));
     }
 
-    // ═══════════════════════════════════════════════
-    //  WM-UT-05: Xóa workshop không có đăng ký
-    // ═══════════════════════════════════════════════
+    // WM-UT-05: Delete workshop with no registrations
 
+        // Verify successful Workshop deletion when there are no registrations
     @Test
     void deleteWorkshop_noRegistrations_deletesSuccessfully() {
         Workshop existing = baseWorkshop(1L);
@@ -168,40 +163,41 @@ class WorkshopServiceTest {
         verify(workshopRepository).delete(existing);
     }
 
+        // Verify Workshop deletion throws Not Found for non-existent ID
     @Test
     void deleteWorkshop_notFound_throwsResourceNotFound() {
         when(workshopRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> workshopService.deleteWorkshop(999L));
+        assertThrows(ResourceNotFoundException.class, () ->
+        workshopService.deleteWorkshop(999L));
         verify(workshopRepository, never()).delete(any(Workshop.class));
     }
 
-    // ═══════════════════════════════════════════════
-    //  WM-UT-06: Cập nhật total_slots khi có đăng ký
-    // ═══════════════════════════════════════════════
+    // WM-UT-06: Update total_slots when there are registrations
 
+        // Verify Workshop update throws Conflict when changing total slots with existing registrations
     @Test
     void updateWorkshop_changeTotalSlotsWithRegistrations_throwsConflict() {
         Workshop existing = baseWorkshop(1L);
         existing.setTotalSlots(60);
 
         WorkshopRequest request = new WorkshopRequest(
-                "Updated Title", null, 100, BigDecimal.ZERO,  // total_slots changed 60 → 100
+                "Updated Title", null, 100, BigDecimal.ZERO,
                 LocalDateTime.of(2026, 5, 10, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 12, 0)
-        );
+                LocalDateTime.of(2026, 5, 10, 12, 0));
 
         when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
         when(registrationRepository.existsByWorkshopId(1L)).thenReturn(true);
 
-        ConflictException ex = assertThrows(
+        ConflictException ex =
+        assertThrows(
                 ConflictException.class,
-                () -> workshopService.updateWorkshop(1L, request)
-        );
+                () -> workshopService.updateWorkshop(1L, request));
         assertTrue(ex.getMessage().contains("Cannot change total_slots"));
         verify(workshopRepository, never()).save(any(Workshop.class));
     }
 
+        // Verify successful Workshop update and total slots change when there are no registrations
     @Test
     void updateWorkshop_changeTotalSlotsWithoutRegistrations_succeeds() {
         Workshop existing = baseWorkshop(1L);
@@ -210,8 +206,7 @@ class WorkshopServiceTest {
         WorkshopRequest request = new WorkshopRequest(
                 "Updated Title", "New desc", 100, BigDecimal.TEN,
                 LocalDateTime.of(2026, 5, 10, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 12, 0)
-        );
+                LocalDateTime.of(2026, 5, 10, 12, 0));
 
         when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
         when(registrationRepository.existsByWorkshopId(1L)).thenReturn(false);
@@ -224,19 +219,18 @@ class WorkshopServiceTest {
         assertEquals(100, existing.getRemainingSlots());
     }
 
+        // Verify successful Workshop update when keeping total slots unchanged (even with registrations)
     @Test
     void updateWorkshop_sameTotalSlotsWithRegistrations_succeeds() {
         Workshop existing = baseWorkshop(1L);
         existing.setTotalSlots(60);
 
         WorkshopRequest request = new WorkshopRequest(
-                "Updated Title Only", null, 60, BigDecimal.ZERO,  // total_slots unchanged
+                "Updated Title Only", null, 60, BigDecimal.ZERO,
                 LocalDateTime.of(2026, 5, 10, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 12, 0)
-        );
+                LocalDateTime.of(2026, 5, 10, 12, 0));
 
         when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
-        // registrationRepository.existsByWorkshopId NOT called because total_slots is unchanged
         when(workshopRepository.save(any(Workshop.class))).thenReturn(existing);
 
         workshopService.updateWorkshop(1L, request);
@@ -245,16 +239,17 @@ class WorkshopServiceTest {
         assertEquals("Updated Title Only", existing.getTitle());
     }
 
+        // Verify Workshop update throws Not Found for non-existent ID
     @Test
     void updateWorkshop_notFound_throwsResourceNotFound() {
         when(workshopRepository.findById(999L)).thenReturn(Optional.empty());
 
         assertThrows(
                 ResourceNotFoundException.class,
-                () -> workshopService.updateWorkshop(999L, validRequest())
-        );
+                () -> workshopService.updateWorkshop(999L, validRequest()));
     }
 
+        // Verify Workshop update throws error when end time is before start time
     @Test
     void updateWorkshop_endTimeBeforeStartTime_throwsIllegalArgument() {
         Workshop existing = baseWorkshop(1L);
@@ -263,28 +258,27 @@ class WorkshopServiceTest {
         WorkshopRequest request = new WorkshopRequest(
                 "Bad Update", null, 60, BigDecimal.ZERO,
                 LocalDateTime.of(2026, 5, 10, 12, 0),
-                LocalDateTime.of(2026, 5, 10, 8, 0)
-        );
+                LocalDateTime.of(2026, 5, 10, 8, 0));
 
         assertThrows(IllegalArgumentException.class, () -> workshopService.updateWorkshop(1L, request));
         verify(workshopRepository, never()).save(any(Workshop.class));
     }
 
-    // ═══════════════════════════════════════════════
-    //  WM-UT-07: Lấy chi tiết workshop không tồn tại
-    // ═══════════════════════════════════════════════
+    // WM-UT-07: Get details of non-existent workshop
 
+        // Verify getting Workshop details throws Not Found for non-existent ID
     @Test
     void getWorkshopById_notFound_throwsResourceNotFound() {
         when(workshopRepository.findById(999L)).thenReturn(Optional.empty());
 
-        ResourceNotFoundException ex = assertThrows(
+        ResourceNotFoundException ex =
+        assertThrows(
                 ResourceNotFoundException.class,
-                () -> workshopService.getWorkshopById(999L)
-        );
+                () -> workshopService.getWorkshopById(999L));
         assertTrue(ex.getMessage().contains("Workshop not found"));
     }
 
+        // Verify getting Workshop details successfully returns correct data
     @Test
     void getWorkshopById_found_returnsResponse() {
         Workshop existing = baseWorkshop(1L);
@@ -298,10 +292,9 @@ class WorkshopServiceTest {
         assertEquals(existing.getRemainingSlots(), response.getRemainingSlots());
     }
 
-    // ═══════════════════════════════════════════════
-    //  getAllWorkshops
-    // ═══════════════════════════════════════════════
+    // getAllWorkshops
 
+        // Verify getting all Workshops successfully
     @Test
     void getAllWorkshops_returnsAllMappedToResponse() {
         Workshop w1 = baseWorkshop(1L);
@@ -318,6 +311,7 @@ class WorkshopServiceTest {
         assertEquals("Second Workshop", result.get(1).getTitle());
     }
 
+        // Verify getting all Workshops returns empty array when no data
     @Test
     void getAllWorkshops_emptyList_returnsEmpty() {
         when(workshopRepository.findAll()).thenReturn(List.of());
@@ -327,10 +321,9 @@ class WorkshopServiceTest {
         assertTrue(result.isEmpty());
     }
 
-    // ═══════════════════════════════════════════════
-    //  getWorkshopStats
-    // ═══════════════════════════════════════════════
+    // getWorkshopStats
 
+        // Verify getting Workshop stats successfully and calculates correct fill rate
     @Test
     void getWorkshopStats_validId_returnsCorrectStats() {
         Workshop workshop = baseWorkshop(1L);
@@ -347,9 +340,10 @@ class WorkshopServiceTest {
         assertEquals(60, stats.getTotalSlots());
         assertEquals(42, stats.getRemainingSlots());
         assertEquals(18L, stats.getRegisteredCount());
-        assertEquals(30.0, stats.getFillRate()); // (60-42)/60*100 = 30.0
+        assertEquals(30.0, stats.getFillRate());
     }
 
+        // Verify getting Workshop stats returns 100% fill rate when full
     @Test
     void getWorkshopStats_fullWorkshop_fillRate100() {
         Workshop workshop = baseWorkshop(1L);
@@ -365,6 +359,7 @@ class WorkshopServiceTest {
         assertEquals(100.0, stats.getFillRate());
     }
 
+        // Verify getting Workshop stats returns 0% fill rate when no registrations
     @Test
     void getWorkshopStats_emptyWorkshop_fillRate0() {
         Workshop workshop = baseWorkshop(1L);
@@ -381,6 +376,7 @@ class WorkshopServiceTest {
         assertEquals(0.0, stats.getFillRate());
     }
 
+        // Verify getting Workshop stats throws Not Found for non-existent ID
     @Test
     void getWorkshopStats_notFound_throwsResourceNotFound() {
         when(workshopRepository.findById(999L)).thenReturn(Optional.empty());
@@ -388,15 +384,13 @@ class WorkshopServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> workshopService.getWorkshopStats(999L));
     }
 
-    // ═══════════════════════════════════════════════
-    //  Edge cases
-    // ═══════════════════════════════════════════════
+    // Edge cases
 
+        // Verify successful Workshop deletion when there are only Pending/Cancelled registrations (no Success)
     @Test
     void deleteWorkshop_hasPendingButNoSuccessRegistrations_deletesSuccessfully() {
         Workshop existing = baseWorkshop(1L);
         when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
-        // Has registrations, but none are SUCCESS (e.g., only PENDING/CANCELLED)
         when(registrationRepository.existsByWorkshopIdAndStatus(1L, "SUCCESS")).thenReturn(false);
 
         workshopService.deleteWorkshop(1L);
@@ -404,6 +398,7 @@ class WorkshopServiceTest {
         verify(workshopRepository).delete(existing);
     }
 
+        // Verify Workshop update persists valid fields correctly
     @Test
     void updateWorkshop_validFieldsUpdated_persists() {
         Workshop existing = baseWorkshop(1L);
@@ -412,8 +407,7 @@ class WorkshopServiceTest {
         WorkshopRequest request = new WorkshopRequest(
                 "New Title", "New Description", 60, new BigDecimal("50000"),
                 LocalDateTime.of(2026, 6, 1, 9, 0),
-                LocalDateTime.of(2026, 6, 1, 17, 0)
-        );
+                LocalDateTime.of(2026, 6, 1, 17, 0));
 
         when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
         when(workshopRepository.save(any(Workshop.class))).thenReturn(existing);
@@ -427,9 +421,7 @@ class WorkshopServiceTest {
         assertEquals(LocalDateTime.of(2026, 6, 1, 17, 0), existing.getEndTime());
     }
 
-    // ═══════════════════════════════════════════════
-    //  Test Helpers
-    // ═══════════════════════════════════════════════
+    // Test Helpers
 
     private WorkshopRequest validRequest() {
         return new WorkshopRequest(
@@ -438,8 +430,7 @@ class WorkshopServiceTest {
                 60,
                 BigDecimal.ZERO,
                 LocalDateTime.of(2026, 5, 10, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 12, 0)
-        );
+                LocalDateTime.of(2026, 5, 10, 12, 0));
     }
 
     private Workshop baseWorkshop(Long id) {

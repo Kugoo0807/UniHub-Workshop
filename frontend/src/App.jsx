@@ -13,7 +13,7 @@ import UnauthorizedPage from './pages/UnauthorizedPage';
 import HomeStudent from './pages/HomeStudent';
 import Dashboard from './pages/Dashboard';
 import NotFoundPage from './pages/NotFoundPage';
-import WorkshopManagement from './pages/admin/WorkshopManagement';
+
 
 const App = () => {
     return (
@@ -39,7 +39,6 @@ const App = () => {
                         {/* Admin-only routes */}
                         <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
                             <Route path="/admin" element={<Dashboard />} />
-                            <Route path="/admin/workshops" element={<WorkshopManagement />} />
                         </Route>
 
                         {/* Catch-all route for undefined URLs (404 Not Found) */}

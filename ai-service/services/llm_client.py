@@ -8,7 +8,7 @@ def generate_summary(text: str) -> str:
         api_key = os.getenv("LLM_API_KEY")
         if not api_key:
             print("WARNING: LLM_API_KEY not set. Using mock summary.")
-            return f"Đây là bản tóm tắt mẫu (Mock). Nội dung trích xuất: {text[:100]}..."
+            return f"{text[:100]}..."
             
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel('gemini-pro')
@@ -16,4 +16,4 @@ def generate_summary(text: str) -> str:
         response = model.generate_content(prompt)
         return response.text
     else:
-        return f"Đây là bản tóm tắt mẫu (Mock). Nội dung trích xuất: {text[:100]}..."
+        return f"{text[:100]}..."
