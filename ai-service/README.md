@@ -24,7 +24,10 @@ Create a `.env` file in the root directory (or in this directory) with the follo
 ```env
 LLM_PROVIDER=gemini
 LLM_API_KEY=your_gemini_api_key_here
+LLM_MODEL=gemini-flash-latest
 ```
+
+If you see a `404 ... model is not found` error, the model name is not available for your API key/version. You can set `LLM_MODEL` to a model returned by `genai.list_models()` that supports `generateContent`.
 
 ## Running the Service
 

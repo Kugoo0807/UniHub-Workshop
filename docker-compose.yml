@@ -3,9 +3,8 @@ services:
     build: ./ai-service
     ports:
       - "8000:8000" # Expose for local testing from Windows Spring Boot
-    environment:
-      - LLM_PROVIDER=gemini
-      - LLM_API_KEY=${LLM_API_KEY:-} # Add your API Key in .env or environment variable
+    env_file:
+      - ./ai-service/.env
   # Uncomment below if you want to run backend via Docker later
   # backend:
   #   build: ./backend
