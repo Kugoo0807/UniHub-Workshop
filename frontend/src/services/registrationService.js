@@ -1,7 +1,7 @@
 import axiosClient from '../api/axiosClient';
 
 const listWorkshops = async () => {
-    return await axiosClient.get('/workshops');
+    return await axiosClient.get('/students/workshops');
 };
 
 const registerFree = async (workshopId) => {
