@@ -3,37 +3,35 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios'; 
 
+const QR_API = 'https://api.qrserver.com/v1/create-qr-code/';
+
 const HomeStudent = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     const [isProcessing, setIsProcessing] = useState(false);
     const [registrations, setRegistrations] = useState([]);
+    const [selectedReg, setSelectedReg] = useState(null);
 
-    // 1. Sửa hàm fetch dữ liệu
     useEffect(() => {
         const fetchMyRegistrations = async () => {
             try {
-                // Lấy trực tiếp từ localStorage bằng key 'access_token'
                 const token = localStorage.getItem('access_token'); 
-                
                 if (!token) return;
 
                 const response = await axios.get('http://localhost:8080/api/v1/registrations/my-registrations', {
                     headers: { 
-                        // Đảm bảo gửi đúng định dạng Bearer + token
                         Authorization: `Bearer ${token}` 
                     }
                 });
                 setRegistrations(response.data);
             } catch (error) {
-                console.error("Lỗi fetch data:", error.response);
+                console.error("Failed to fetch registrations:", error.response);
             }
         };
         
         if (user) fetchMyRegistrations();
     }, [user]);
 
-    // 2. Sửa hàm thanh toán
     const handlePayment = async (registrationId, amount) => {
         setIsProcessing(true);
         try {
@@ -51,14 +49,14 @@ const HomeStudent = () => {
             });
 
             if (response.data && response.data.status === 'COMPLETED') {
-                alert('🎉 Thanh toán thành công!');
+                alert('🎉 Payment successful!');
                 setRegistrations(prev => prev.map(reg => 
                     reg.id === registrationId ? { ...reg, status: 'SUCCESS' } : reg
                 ));
             }
         } catch (error) {
             console.error(error);
-            alert('Lỗi thanh toán.');
+            alert('Payment failed.');
         } finally {
             setIsProcessing(false);
         }
@@ -86,15 +84,23 @@ const HomeStudent = () => {
                     </h2>
                     <div className="space-y-3">
                         {registrations.length === 0 ? (
-                            <p className="text-gray-500 text-sm">Bạn chưa đăng ký workshop nào.</p>
+                            <p className="text-gray-500 text-sm">You have not registered for any workshops yet.</p>
                         ) : (
                             registrations.map((reg) => {
-                                // BƯỚC 2: SỬA LẠI LOGIC LẤY GIÁ TIỀN TỪ WORKSHOP
                                 const price = reg.workshop?.price || 0;
                                 const isFree = price === 0;
+                                const hasQr = !!reg.qrCode;
                                 
                                 return (
-                                    <div key={reg.id} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
+                                    <div
+                                        key={reg.id}
+                                        className={`flex items-center justify-between rounded-lg border p-3 transition ${
+                                            hasQr
+                                                ? 'border-indigo-200 bg-indigo-50/30 cursor-pointer hover:border-indigo-400 hover:shadow-sm'
+                                                : 'border-gray-100'
+                                        }`}
+                                        onClick={() => hasQr && setSelectedReg(reg)}
+                                    >
                                         <div className="flex flex-col">
                                             <span className="text-gray-700 font-medium">
                                                 {reg.workshop?.title || 'Workshop'}
@@ -107,6 +113,11 @@ const HomeStudent = () => {
                                             {isFree && (
                                                 <span className="text-sm text-green-600 font-medium">Free</span>
                                             )}
+                                            {hasQr && (
+                                                <span className="text-xs text-indigo-500 mt-0.5">
+                                                    📱 Tap to view QR code
+                                                </span>
+                                            )}
                                         </div>
                                         
                                         <div className="flex items-center gap-3">
@@ -118,7 +129,7 @@ const HomeStudent = () => {
                                             
                                             {reg.status === 'PENDING' && !isFree && (
                                                 <button
-                                                    onClick={() => handlePayment(reg.id, price)}
+                                                    onClick={(e) => { e.stopPropagation(); handlePayment(reg.id, price); }}
                                                     disabled={isProcessing}
                                                     className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-600 transition disabled:opacity-50"
                                                 >
@@ -160,6 +171,54 @@ const HomeStudent = () => {
                     </div>
                 </section>
             </div>
+
+            {/* QR Code Modal */}
+            {selectedReg && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+                    onClick={() => setSelectedReg(null)}
+                >
+                    <div
+                        className="w-full max-w-sm transform overflow-hidden rounded-2xl bg-white p-6 text-center shadow-xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
+                            <svg className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                        </div>
+
+                        <h3 className="mb-1 text-xl font-bold text-gray-900">
+                            {selectedReg.workshop?.title || 'Workshop'}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                            Scan the QR code below to check in
+                        </p>
+
+                        <div className="mt-4 flex flex-col items-center gap-2">
+                            <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 p-3">
+                                <img
+                                    src={`${QR_API}?size=200x200&data=${encodeURIComponent(selectedReg.qrCode)}`}
+                                    alt="Registration QR Code"
+                                    width={200}
+                                    height={200}
+                                    className="rounded-lg"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="mt-6">
+                            <button
+                                type="button"
+                                onClick={() => setSelectedReg(null)}
+                                className="inline-flex w-full justify-center rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 transition"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -1,8 +1,14 @@
 // src/components/SuccessModal.jsx
 import React from 'react';
 
-const SuccessModal = ({ isOpen, title, message, onClose }) => {
+const QR_API = 'https://api.qrserver.com/v1/create-qr-code/';
+
+const SuccessModal = ({ isOpen, title, message, qrCode, onClose }) => {
     if (!isOpen) return null;
+
+    const qrUrl = qrCode
+        ? `${QR_API}?size=200x200&data=${encodeURIComponent(qrCode)}`
+        : null;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity">
@@ -24,13 +30,31 @@ const SuccessModal = ({ isOpen, title, message, onClose }) => {
                     </p>
                 </div>
 
+                {/* QR Code Image */}
+                {qrUrl && (
+                    <div className="mt-4 flex flex-col items-center gap-2">
+                        <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-indigo-50/50 p-3">
+                            <img
+                                src={qrUrl}
+                                alt="Registration QR Code"
+                                width={200}
+                                height={200}
+                                className="rounded-lg"
+                            />
+                        </div>
+                        <p className="text-xs text-gray-400">
+                            Scan this QR code to check in at the workshop
+                        </p>
+                    </div>
+                )}
+
                 <div className="mt-6">
                     <button
                         type="button"
                         onClick={onClose}
                         className="inline-flex w-full justify-center rounded-lg border border-transparent bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 transition"
                     >
-                        Đóng
+                        Close
                     </button>
                 </div>
             </div>

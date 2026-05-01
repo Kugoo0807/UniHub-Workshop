@@ -21,7 +21,8 @@ const WorkshopsPage = () => {
     const [successData, setSuccessData] = useState({
         isOpen: false,
         title: '',
-        message: ''
+        message: '',
+        qrCode: null
     });
 
     useEffect(() => {
@@ -56,8 +57,9 @@ const WorkshopsPage = () => {
 
             setSuccessData({
                 isOpen: true,
-                title: 'Đăng ký thành công! 🎉',
-                message: `Mã QR của bạn: ${resp.qrCode}`
+                title: 'Registration Successful! 🎉',
+                message: 'Please save the QR code below to check in.',
+                qrCode: resp.qrCode
             });
             
             load();
@@ -93,8 +95,8 @@ const WorkshopsPage = () => {
 
             setSuccessData({
                 isOpen: true,
-                title: 'Thanh toán thành công! 🎉',
-                message: `Mã giao dịch: ${payResp.transactionId || 'OK'}`
+                title: 'Payment Successful! 🎉',
+                message: `Transaction ID: ${payResp.transactionId || 'OK'}`
             });
             
             handleCloseModal();
@@ -115,7 +117,7 @@ const WorkshopsPage = () => {
 
     return (
         <div className="p-6 min-h-screen bg-gray-50">
-            <h1 className="mb-4 text-2xl font-bold text-gray-800">Khám phá Workshops</h1>
+            <h1 className="mb-4 text-2xl font-bold text-gray-800">Discover Workshops</h1>
             {error && <div className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error}</div>}
             
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -142,6 +144,7 @@ const WorkshopsPage = () => {
                 isOpen={successData.isOpen}
                 title={successData.title}
                 message={successData.message}
+                qrCode={successData.qrCode}
                 onClose={() => setSuccessData({ ...successData, isOpen: false })}
             />
         </div>
