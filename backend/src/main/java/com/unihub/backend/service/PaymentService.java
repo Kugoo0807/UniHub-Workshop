@@ -137,10 +137,5 @@ public class PaymentService {
             redisTemplate.delete(reservationKey);
             redisTemplate.opsForValue().increment(slotKey);
         } catch (Exception ignore) {}
-
-        try {
-            registration.setStatus("FAILED");
-            registrationRepository.save(registration);
-        } catch (Exception ignore) {}
     }
 }

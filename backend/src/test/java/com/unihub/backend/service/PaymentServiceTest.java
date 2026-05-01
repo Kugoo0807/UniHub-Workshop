@@ -133,6 +133,7 @@ class PaymentServiceTest {
         Registration reg = Registration.builder()
                 .id(12L)
                 .workshop(Workshop.builder().id(9L).build())
+                .status("PENDING")
                 .build();
 
         when(valueOps.get("payment:idem:idem-3")).thenReturn(null);
@@ -152,7 +153,7 @@ class PaymentServiceTest {
         // Bước 3: Phải giải phóng chỗ đã giữ
         verify(redisTemplate).delete(contains("reservation:12"));
         verify(valueOps).increment(contains("slots"));
-        verify(registrationRepository).save(argThat(r -> "FAILED".equals(r.getStatus())));
+        assertEquals("PENDING", reg.getStatus());
     }
 
     @Test
