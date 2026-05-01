@@ -13,4 +13,7 @@ public interface WorkshopRepository extends JpaRepository<Workshop, Long> {
     @Modifying
     @Query("UPDATE Workshop w SET w.description = :description WHERE w.id = :id")
     void updateDescription(@Param("id") Long id, @Param("description") String description);
+    @Modifying
+    @Query("UPDATE Workshop w SET w.remainingSlots = w.remainingSlots - 1 WHERE w.id = :id AND w.remainingSlots > 0")
+    int decrementRemainingSlots(@Param("id") Long id);
 }

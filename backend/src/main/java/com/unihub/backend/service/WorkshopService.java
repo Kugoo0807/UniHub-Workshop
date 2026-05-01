@@ -9,6 +9,7 @@ import com.unihub.backend.exception.ResourceNotFoundException;
 import com.unihub.backend.repository.RegistrationRepository;
 import com.unihub.backend.repository.WorkshopRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,9 @@ public class WorkshopService {
 
     private final WorkshopRepository workshopRepository;
     private final RegistrationRepository registrationRepository;
+    private final StringRedisTemplate redisTemplate;
+
+    private static final String SLOT_KEY_FMT = "workshop:%d:slots";
 
     // ────────────── Admin ──────────────
 
@@ -55,7 +59,8 @@ public class WorkshopService {
 
         Workshop saved = workshopRepository.save(workshop);
 
-        // TODO: Redis SET workshop:slots:{id} = total_slots (Phase: Redis integration)
+        String key = String.format(SLOT_KEY_FMT, saved.getId());
+        redisTemplate.opsForValue().set(key, String.valueOf(saved.getTotalSlots()));
 
         return toResponse(saved);
     }
@@ -99,15 +104,16 @@ public class WorkshopService {
 
         workshopRepository.delete(workshop);
 
-        // TODO: Redis DEL workshop:slots:{id} (Phase: Redis integration)
+        String key = String.format(SLOT_KEY_FMT, id);
+        redisTemplate.delete(key);
     }
 
     public WorkshopStatsResponse getWorkshopStats(Long id) {
         Workshop workshop = findWorkshopOrThrow(id);
 
-        // TODO: Read remaining_slots from Redis (Phase: Redis integration)
-        // For now, read from DB column
-        int remainingSlots = workshop.getRemainingSlots();
+        String key = String.format(SLOT_KEY_FMT, id);
+        String redisVal = redisTemplate.opsForValue().get(key);
+        int remainingSlots = redisVal != null ? Integer.parseInt(redisVal) : workshop.getRemainingSlots();
 
         long registeredCount = registrationRepository.countByWorkshopIdAndStatus(id, "SUCCESS");
 
@@ -144,12 +150,16 @@ public class WorkshopService {
     }
 
     private WorkshopResponse toResponse(Workshop w) {
+        String key = String.format(SLOT_KEY_FMT, w.getId());
+        String redisVal = redisTemplate.opsForValue().get(key);
+        int remaining = redisVal != null ? Integer.parseInt(redisVal) : w.getRemainingSlots();
+
         return WorkshopResponse.builder()
                 .id(w.getId())
                 .title(w.getTitle())
                 .description(w.getDescription())
                 .totalSlots(w.getTotalSlots())
-                .remainingSlots(w.getRemainingSlots()) // TODO: override with Redis value
+                .remainingSlots(remaining)
                 .price(w.getPrice())
                 .startTime(w.getStartTime())
                 .endTime(w.getEndTime())

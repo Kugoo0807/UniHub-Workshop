@@ -5,6 +5,15 @@ services:
       - "8000:8000" # Expose for local testing from Windows Spring Boot
     env_file:
       - ./ai-service/.env
+  redis:
+    image: redis:7-alpine
+    container_name: unihub-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
   # Uncomment below if you want to run backend via Docker later
   # backend:
   #   build: ./backend
@@ -13,3 +22,6 @@ services:
   #   environment:
   #     - AI_SERVICE_URL=http://ai-service:8000
   # docker-compose up --build ai-service
+
+volumes:
+  redis_data:
