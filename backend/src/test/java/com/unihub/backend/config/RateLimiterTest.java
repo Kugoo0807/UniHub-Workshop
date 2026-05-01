@@ -55,20 +55,19 @@ public class RateLimiterTest {
     }
 
     @Test
-    void testRateLimiterBlocksAfter5Requests() throws Exception {
-        // Gửi 5 requests đầu tiên, phải thành công (hoặc ít nhất là qua được interceptor)
-        // Vì API body bị thiếu nên nó sẽ ném lỗi 400 Bad Request, nhưng interceptor thì KHÔNG block (tức là không phải lỗi 429)
-        for (int i = 0; i < 5; i++) {
+    void testRateLimiterBlocksAfter10Requests() throws Exception {
+        // Send 10 requests first, all should pass through the interceptor
+        // API body is missing so it will throw 400 Bad Request, but the interceptor should NOT block (i.e. not 429)
+        for (int i = 0; i < 10; i++) {
             final int attempt = i;
             mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/registrations/free"))
                     .andExpect(result -> {
-                        // Miễn không phải là 429 Too Many Requests là được
                         int statusCode = result.getResponse().getStatus();
-                        assert statusCode != 429 : "Request thứ " + (attempt + 1) + " bị block sai";
+                        assert statusCode != 429 : "Request #" + (attempt + 1) + " was incorrectly blocked";
                     });
         }
 
-        // Request thứ 6 TRONG CÙNG 5 giây => PHẢI BỊ BLOCK (HTTP 429)
+        // The 11th request within the same 5-second window => MUST BE BLOCKED (HTTP 429)
         mockMvc.perform(MockMvcRequestBuilders.post("/api/v1/registrations/free"))
                 .andExpect(status().isTooManyRequests());
     }
