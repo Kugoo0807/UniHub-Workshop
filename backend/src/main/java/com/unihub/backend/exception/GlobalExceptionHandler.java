@@ -44,6 +44,36 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
+    @ExceptionHandler(com.unihub.backend.exception.InsufficientSeatsException.class)
+    public ResponseEntity<ErrorResponse> handleInsufficientSeats(com.unihub.backend.exception.InsufficientSeatsException ex) {
+        return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(com.unihub.backend.exception.DuplicateRegistrationException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateRegistration(com.unihub.backend.exception.DuplicateRegistrationException ex) {
+        return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(com.unihub.backend.exception.PaymentFailedException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentFailed(com.unihub.backend.exception.PaymentFailedException ex) {
+        return buildErrorResponse(HttpStatus.PAYMENT_REQUIRED, ex.getMessage());
+    }
+
+    @ExceptionHandler(com.unihub.backend.exception.PaymentServiceUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentServiceUnavailable(com.unihub.backend.exception.PaymentServiceUnavailableException ex) {
+        return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+    }
+
+    @ExceptionHandler(com.unihub.backend.exception.IdempotencyKeyException.class)
+    public ResponseEntity<ErrorResponse> handleIdempotency(com.unihub.backend.exception.IdempotencyKeyException ex) {
+        return buildErrorResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
+    @ExceptionHandler(com.unihub.backend.exception.RateLimitExceededException.class)
+    public ResponseEntity<ErrorResponse> handleRateLimit(com.unihub.backend.exception.RateLimitExceededException ex) {
+        return buildErrorResponse(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage());
+    }
+
     @ExceptionHandler(ForbiddenOperationException.class)
     public ResponseEntity<ErrorResponse> handleForbiddenOperationException(ForbiddenOperationException ex) {
         return buildErrorResponse(HttpStatus.FORBIDDEN, ex.getMessage());
