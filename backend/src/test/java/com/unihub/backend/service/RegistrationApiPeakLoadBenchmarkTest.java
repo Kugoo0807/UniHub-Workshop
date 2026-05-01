@@ -109,8 +109,6 @@ class RegistrationApiPeakLoadBenchmarkTest {
             var registration = invocation.getArgument(0);
             return registration;
         });
-
-        Mockito.when(workshopRepository.save(ArgumentMatchers.any())).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     @Test
