@@ -11,6 +11,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import HomeStudent from './pages/HomeStudent';
+import WorkshopsPage from './pages/WorkshopsPage';
 import Dashboard from './pages/Dashboard';
 import NotFoundPage from './pages/NotFoundPage';
 
@@ -34,6 +35,7 @@ const App = () => {
                         {/* Student-only routes */}
                         <Route element={<ProtectedRoute allowedRoles={['STUDENT']} />}>
                             <Route path="/student" element={<HomeStudent />} />
+                            <Route path="/workshops" element={<WorkshopsPage />} />
                         </Route>
 
                         {/* Admin-only routes */}

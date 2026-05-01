@@ -8,12 +8,16 @@ import com.unihub.backend.exception.ConflictException;
 import com.unihub.backend.exception.ResourceNotFoundException;
 import com.unihub.backend.repository.RegistrationRepository;
 import com.unihub.backend.repository.WorkshopRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -33,8 +37,19 @@ class WorkshopServiceTest {
     @Mock
     private RegistrationRepository registrationRepository;
 
+    @Mock
+    private StringRedisTemplate redisTemplate;
+
+    @Mock
+    private ValueOperations<String, String> valueOperations;
+
     @InjectMocks
     private WorkshopService workshopService;
+
+    @BeforeEach
+    void setupRedisMock() {
+        lenient().when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+    }
 
     // WM-UT-01: Create valid workshop
 

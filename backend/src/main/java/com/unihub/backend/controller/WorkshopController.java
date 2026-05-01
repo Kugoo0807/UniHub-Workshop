@@ -2,6 +2,8 @@ package com.unihub.backend.controller;
 
 import com.unihub.backend.config.OpenApiConfig;
 import com.unihub.backend.dto.*;
+import com.unihub.backend.entity.Workshop;
+import com.unihub.backend.repository.WorkshopRepository;
 import com.unihub.backend.service.WorkshopService;
 import com.unihub.backend.service.WorkshopAiService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -28,6 +30,7 @@ public class WorkshopController {
 
     private final WorkshopService workshopService;
     private final WorkshopAiService workshopAiService;
+    private final WorkshopRepository workshopRepository;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -167,5 +170,16 @@ public class WorkshopController {
         // 5. Return 202 Accepted
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(java.util.Map.of("message", "AI summary is being processed, description will be updated soon."));
+    }
+    @GetMapping("/raw")
+    public ResponseEntity<List<Workshop>> list() {
+        return ResponseEntity.ok(workshopRepository.findAll());
+    }
+
+    @GetMapping("/raw/{id}")
+    public ResponseEntity<Workshop> get(@PathVariable Long id) {
+        return workshopRepository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 }
