@@ -10,6 +10,7 @@ import com.unihub.backend.repository.RegistrationRepository;
 import com.unihub.backend.repository.WorkshopRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +31,7 @@ public class WorkshopService {
     // ────────────── Admin ──────────────
 
     public List<WorkshopResponse> getAllWorkshops() {
-        return workshopRepository.findAll()
+        return workshopRepository.findAll(Sort.by(Sort.Direction.ASC, "id"))
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -40,8 +41,6 @@ public class WorkshopService {
         Workshop workshop = findWorkshopOrThrow(id);
         return toResponse(workshop);
     }
-
-
 
     @Transactional
     public WorkshopResponse createWorkshop(WorkshopRequest request) {
@@ -77,7 +76,8 @@ public class WorkshopService {
                 throw new ConflictException(
                         "Cannot change total_slots because registrations already exist for this workshop");
             }
-            // Update remaining_slots to match new total_slots since there are no registrations
+            // Update remaining_slots to match new total_slots since there are no
+            // registrations
             workshop.setRemainingSlots(request.totalSlots());
         }
 
