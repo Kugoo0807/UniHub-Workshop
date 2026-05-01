@@ -81,14 +81,8 @@ public class RegistrationService {
 
         try {
             registration = registrationRepository.save(registration);
-            int currentRemaining = workshop.getRemainingSlots() == null ? 0 : workshop.getRemainingSlots();
-            if (currentRemaining <= 0) {
-                throw new InsufficientSeatsException("Workshop này đã hết chỗ");
-            }
-            workshop.setRemainingSlots(currentRemaining - 1);
-            workshopRepository.save(workshop);
         } catch (RuntimeException ex) {
-            // rollback Redis decrement
+            // rollback Redis decrement if DB save fails
             redisTemplate.opsForValue().increment(slotKey);
             throw ex;
         }

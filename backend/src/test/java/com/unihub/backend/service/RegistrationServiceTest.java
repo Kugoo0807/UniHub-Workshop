@@ -89,7 +89,6 @@ class RegistrationServiceTest {
             reg.setId(11L);
             return reg;
         });
-        when(workshopRepository.save(any(Workshop.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         RegistrationResponse out = registrationService.registerFree(request, user, "script");
 
