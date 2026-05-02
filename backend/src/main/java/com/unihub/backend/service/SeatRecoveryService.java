@@ -62,6 +62,27 @@ public class SeatRecoveryService {
         }
     }
 
+    @Scheduled(fixedRate = 300000) // runs every 5 minutes
+    public void releaseExpiredReservations() {
+        log.info("Running cleanup for expired pending reservations");
+        try {
+            LocalDateTime fifteenMinsAgo = LocalDateTime.now().minusMinutes(15);
+            com.unihub.backend.entity.Registration[] expiredRegistrations = registrationRepository.findByStatusAndCreatedAtBefore("PENDING", fifteenMinsAgo).toArray(new com.unihub.backend.entity.Registration[0]);
+            
+            for (com.unihub.backend.entity.Registration reg : expiredRegistrations) {
+                reg.setStatus("FAILED");
+                registrationRepository.save(reg);
+                
+                String slotKey = String.format(SLOT_KEY_FMT, reg.getWorkshop().getId());
+                redisTemplate.opsForValue().increment(slotKey);
+                
+                log.info("Released seat for expired registration {}", reg.getId());
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to cleanup expired reservations", ex);
+        }
+    }
+
     private void syncAllSafely() {
         try {
             syncAll();

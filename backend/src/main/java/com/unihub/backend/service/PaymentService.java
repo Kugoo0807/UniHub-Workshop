@@ -39,7 +39,7 @@ public class PaymentService {
         String stored = redisTemplate.opsForValue().get(idemKey);
         if (stored != null) {
             if (stored.startsWith("no_seat")) {
-                throw new InsufficientSeatsException("Workshop này đã hết chỗ");
+                throw new InsufficientSeatsException("This workshop is sold out");
             }
             return paymentRepository.findByIdempotencyKey(req.getIdempotencyKey())
                     .orElseThrow(() -> new IdempotencyKeyException("Idempotency key present but payment missing"));
@@ -72,7 +72,7 @@ public class PaymentService {
             if (r == null || r.longValue() < 0) {
                 // Mark idempotency key as out-of-seats to prevent further retries
                 redisTemplate.opsForValue().set(idemKey, "no_seat", Duration.ofHours(24));
-                throw new InsufficientSeatsException("Workshop này đã hết chỗ");
+                throw new InsufficientSeatsException("This workshop is sold out");
             }
         }
 
@@ -82,7 +82,7 @@ public class PaymentService {
             transactionId = paymentGatewayClient.callGateway(req);
         } catch (CallNotPermittedException cbnpe) {
             // Circuit is open: return 503 and keep registration PENDING for retry.
-            throw new PaymentServiceUnavailableException("Dịch vụ thanh toán tạm thời không khả dụng");
+            throw new PaymentServiceUnavailableException("The payment service is temporarily unavailable");
         } catch (PaymentServiceUnavailableException psue) {
             // Temporary upstream issue (timeout/network): keep PENDING for retry.
             throw psue;
@@ -111,14 +111,6 @@ public class PaymentService {
         payment = paymentRepository.save(payment);
         registration.setStatus("SUCCESS");
         registrationRepository.save(registration);
-        com.unihub.backend.entity.Workshop workshop = registration.getWorkshop();
-        int currentRemaining = workshop.getRemainingSlots() == null ? 0 : workshop.getRemainingSlots();
-        if (currentRemaining <= 0) {
-            handleFailedPayment(registration);
-            throw new InsufficientSeatsException("Workshop này đã hết chỗ");
-        }
-        workshop.setRemainingSlots(currentRemaining - 1);
-        workshopRepository.save(workshop);
 
         try {
             redisTemplate.delete(reservationKey);

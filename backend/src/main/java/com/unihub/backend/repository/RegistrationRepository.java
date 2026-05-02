@@ -21,4 +21,6 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
     Optional<Registration> findByUserAndWorkshop(User user, Workshop workshop);
 
     List<Registration> findByUser(User user);
+
+    List<Registration> findByStatusAndCreatedAtBefore(String status, java.time.LocalDateTime createdAt);
 }
