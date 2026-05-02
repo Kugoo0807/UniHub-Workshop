@@ -10,7 +10,7 @@ This microservice is responsible for processing PDF documents and generating aut
 ## Technology Stack
 - **Framework**: FastAPI (Python)
 - **PDF Processing**: PyPDF2
-- **LLM Integration**: `google-generativeai` (Gemini)
+- **LLM Integration**: `google-genai` (Gemini)
 - **Deployment**: Docker & Docker Compose
 
 ## Prerequisites
@@ -24,10 +24,18 @@ Create a `.env` file in the root directory (or in this directory) with the follo
 ```env
 LLM_PROVIDER=gemini
 LLM_API_KEY=your_gemini_api_key_here
-LLM_MODEL=gemini-flash-latest
+LLM_MODEL=gemini-3.1-flash-lite
+# Use stable API to avoid v1beta model visibility issues
+LLM_API_VERSION=v1
+# Optional: fail fast if the selected model is not available (no fallback)
+LLM_STRICT_MODEL=true
+# Optional: explicit fallback models to try (comma-separated, in order)
+# LLM_FALLBACK_MODELS=gemini-3.1-flash,gemini-2.5-flash
 ```
 
 If you see a `404 ... model is not found` error, the model name is not available for your API key/version. You can set `LLM_MODEL` to a model returned by `genai.list_models()` that supports `generateContent`.
+
+If you see unexpected fallbacks, set `LLM_STRICT_MODEL=true` to fail fast, or set `LLM_FALLBACK_MODELS` to an explicit ordered list.
 
 ## Running the Service
 
@@ -73,4 +81,6 @@ Receives a PDF file and a Workshop ID, processes it, and returns the generated s
 
 **Error Responses:**
 - `400 Bad Request`: If the PDF cannot be read or text extraction fails.
-- `500 Internal Server Error`: If there is an issue with the AI generation process.
+- `404 Not Found`: If the configured model is not available for your API key/API version.
+- `429 Too Many Requests`: If your Gemini API quota is exhausted.
+- `500 Internal Server Error`: For unexpected server errors.

@@ -148,6 +148,7 @@ class WorkshopServiceTest {
 
     // WM-UT-04: Delete workshop with SUCCESS registrations
 
+
         // Verify Workshop deletion throws Conflict if there are successful registrations
     @Test
     void deleteWorkshop_hasSuccessRegistrations_throwsConflict() {
@@ -316,7 +317,8 @@ class WorkshopServiceTest {
         Workshop w2 = baseWorkshop(2L);
         w2.setTitle("Second Workshop");
 
-        when(workshopRepository.findAll()).thenReturn(List.of(w1, w2));
+        when(workshopRepository.findAll(any(org.springframework.data.domain.Sort.class)))
+            .thenReturn(List.of(w1, w2));
 
         List<WorkshopResponse> result = workshopService.getAllWorkshops();
 
@@ -329,7 +331,8 @@ class WorkshopServiceTest {
         // Verify getting all Workshops returns empty array when no data
     @Test
     void getAllWorkshops_emptyList_returnsEmpty() {
-        when(workshopRepository.findAll()).thenReturn(List.of());
+        when(workshopRepository.findAll(any(org.springframework.data.domain.Sort.class)))
+                .thenReturn(List.of());
 
         List<WorkshopResponse> result = workshopService.getAllWorkshops();
 
