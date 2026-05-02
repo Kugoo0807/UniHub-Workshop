@@ -95,7 +95,7 @@ class RegistrationControllerStatusIT {
     @Test
     void payments_shouldReturn409_whenNoSeat() throws Exception {
         when(paymentService.processPayment(any(PaymentRequest.class), anyString()))
-                .thenThrow(new InsufficientSeatsException("Workshop này đã hết chỗ"));
+                .thenThrow(new InsufficientSeatsException("This workshop is sold out"));
 
         PaymentRequest req = new PaymentRequest();
         req.setRegistrationId(11L);
@@ -107,13 +107,13 @@ class RegistrationControllerStatusIT {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.status", is(409)))
-                .andExpect(jsonPath("$.message", is("Workshop này đã hết chỗ")));
+                .andExpect(jsonPath("$.message", is("This workshop is sold out")));
     }
 
     @Test
     void payments_shouldReturn503_whenGatewayUnavailable() throws Exception {
         when(paymentService.processPayment(any(PaymentRequest.class), anyString()))
-                .thenThrow(new PaymentServiceUnavailableException("Dịch vụ thanh toán tạm thời không khả dụng"));
+                .thenThrow(new PaymentServiceUnavailableException("The payment service is temporarily unavailable"));
 
         PaymentRequest req = new PaymentRequest();
         req.setRegistrationId(12L);
@@ -125,7 +125,7 @@ class RegistrationControllerStatusIT {
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.status", is(503)))
-                .andExpect(jsonPath("$.message", is("Dịch vụ thanh toán tạm thời không khả dụng")));
+                .andExpect(jsonPath("$.message", is("The payment service is temporarily unavailable")));
     }
 
     @Test

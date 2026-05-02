@@ -53,7 +53,7 @@ public class RateLimiterInterceptor implements HandlerInterceptor {
         if (currentCount != null && currentCount > MAX_REQUESTS) {
             log.warn("Rate limit exceeded for user {}", userId);
             throw new RateLimitExceededException(
-                    "Bạn thao tác quá nhanh. Vui lòng đợi " + WINDOW_SECONDS + " giây trước khi thử lại.");
+                    "You are acting too quickly. Please wait " + WINDOW_SECONDS + " seconds before trying again.");
         }
 
         return true;

@@ -34,13 +34,13 @@ public class RateLimiterTest {
 
     @BeforeEach
     void setup() {
-        // Tự khởi tạo MockMvc không đính kèm Spring Security filters
+        // Build MockMvc manually without attaching Spring Security filters
         mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
 
-        // Clear redis key trước mỗi lần test
+        // Clear the Redis key before each test
         redisTemplate.delete(REDIS_KEY);
 
-        // Giả lập 1 user đã đăng nhập
+        // Simulate one authenticated user
         Long principal = TEST_USER_ID;
         
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(

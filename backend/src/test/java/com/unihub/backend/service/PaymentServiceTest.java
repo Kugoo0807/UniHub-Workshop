@@ -77,10 +77,10 @@ class PaymentServiceTest {
         when(valueOps.get("payment:idem:idem-1")).thenReturn(null);
         when(registrationRepository.findById(10L)).thenReturn(Optional.of(reg));
 
-        // Giả lập giữ chỗ thành công (r = 1)
+        // Simulate a successful seat reservation (r = 1)
         when(redisTemplate.execute(any(RedisCallback.class))).thenReturn(1L);
 
-        // Giả lập Gateway trả về mã giao dịch sau khi đã có chỗ
+        // Simulate the gateway returning a transaction ID after a seat is reserved
         when(paymentGatewayClient.callGateway(any())).thenReturn("tx-123");
         when(paymentRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
 
@@ -89,8 +89,8 @@ class PaymentServiceTest {
 
         // THEN
         assertNotNull(out);
-        verify(redisTemplate).execute(any(RedisCallback.class)); // Check giữ chỗ trước
-        verify(paymentGatewayClient).callGateway(req); // Check trừ tiền sau
+        verify(redisTemplate).execute(any(RedisCallback.class)); // Verify reservation happens first
+        verify(paymentGatewayClient).callGateway(req); // Verify payment happens after reservation
         verify(paymentRepository).save(any());
         verify(valueOps).set(eq("payment:idem:idem-1"), eq("tx:tx-123"), any(Duration.class));
     }
@@ -110,7 +110,7 @@ class PaymentServiceTest {
         when(valueOps.get("payment:idem:idem-2")).thenReturn(null);
         when(registrationRepository.findById(11L)).thenReturn(Optional.of(reg));
 
-        // Giả lập Redis báo hết chỗ (r = -1)
+        // Simulate Redis reporting sold out (r = -1)
         when(redisTemplate.execute(any(RedisCallback.class))).thenReturn(-1L);
 
         // WHEN & THEN
@@ -118,7 +118,7 @@ class PaymentServiceTest {
                 paymentService.processPayment(req, "seatReserveScript")
         );
 
-        // QUAN TRỌNG: Gateway không bao giờ được gọi nếu hết chỗ
+        // IMPORTANT: the gateway must never be called when the workshop is sold out
         verify(paymentGatewayClient, never()).callGateway(any());
         verify(valueOps).set(eq("payment:idem:idem-2"), eq("no_seat"), any(Duration.class));
     }
@@ -139,10 +139,10 @@ class PaymentServiceTest {
         when(valueOps.get("payment:idem:idem-3")).thenReturn(null);
         when(registrationRepository.findById(12L)).thenReturn(Optional.of(reg));
 
-        // Bước 1: Giữ chỗ thành công
+        // Step 1: Reserve a seat successfully
         when(redisTemplate.execute(any(RedisCallback.class))).thenReturn(1L);
 
-        // Bước 2: Thanh toán thất bại
+        // Step 2: Payment fails
         when(paymentGatewayClient.callGateway(any())).thenThrow(new PaymentFailedException("Declined"));
 
         // WHEN & THEN
@@ -150,7 +150,7 @@ class PaymentServiceTest {
                 paymentService.processPayment(req, "seatReserveScript")
         );
 
-        // Bước 3: Phải giải phóng chỗ đã giữ
+        // Step 3: Release the reserved seat
         verify(redisTemplate).delete(contains("reservation:12"));
         verify(valueOps).increment(contains("slots"));
         assertEquals("PENDING", reg.getStatus());
@@ -225,7 +225,7 @@ class PaymentServiceTest {
         when(registrationRepository.findById(14L)).thenReturn(Optional.of(reg));
         when(redisTemplate.execute(any(RedisCallback.class))).thenReturn(1L);
         when(paymentGatewayClient.callGateway(any()))
-                .thenThrow(new PaymentServiceUnavailableException("Dịch vụ thanh toán tạm thời không khả dụng"));
+                .thenThrow(new PaymentServiceUnavailableException("The payment service is temporarily unavailable"));
 
         assertThrows(PaymentServiceUnavailableException.class, () -> paymentService.processPayment(req, "seatReserveScript"));
 

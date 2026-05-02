@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: backend
+    frontend-url: http://localhost:5173
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1
+    driverClassName: org.h2.Driver
+    username: sa
+    password:
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+  flyway:
+    enabled: false
+
+app:
+  redis:
+    enabled: false
+
+payment:
+  gateway:
+    url: http://localhost:8080/api/v1/fake-gateway/pay
+
+jwt:
+  access-secret: Yn2kj3h4g5f6d7s8a9w0e1r2t3y4u5i6o7p8q9z0x1c2v3b4n5m6
+  refresh-secret: Lp9o8i7u6y5t4r3e2w1q0a9z8x7c6v5b4n3m2k1j0h9g8f7d6s5a4

@@ -16,7 +16,7 @@ public class MockGatewayController {
     public String processFakePayment(@RequestBody PaymentRequest req) throws InterruptedException {
         Thread.sleep(2000);
 
-        // Giả lập giao dịch thành công và trả về một mã giao dịch
+        // Simulate a successful transaction and return a transaction ID
         return "FAKE-REAL-TX-" + UUID.randomUUID().toString();
     }
 }

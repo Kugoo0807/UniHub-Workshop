@@ -27,13 +27,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @TestPropertySource(properties = {
-        "spring.datasource.hikari.maximum-pool-size=150",
-        "spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/postgres}",
+        "spring.datasource.url=${DB_URL:jdbc:postgresql://aws-1-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require}",
         "spring.datasource.driverClassName=org.postgresql.Driver",
-        "spring.datasource.username=postgres.pmoqxtxonplkxqtfyhnv",
-        "spring.datasource.password=${DB_PASSWORD}",
+        "spring.datasource.username=${DB_USERNAME:postgres.pmoqxtxonplkxqtfyhnv}",
+        "spring.datasource.password=${DB_PASSWORD:namtayto12312}",
         "spring.jpa.database-platform=org.hibernate.dialect.PostgreSQLDialect",
-        "spring.jpa.hibernate.ddl-auto=none"
+        "spring.jpa.hibernate.ddl-auto=validate"
 })
 public class RegistrationLoadTest {
 
@@ -66,9 +65,9 @@ public class RegistrationLoadTest {
     @BeforeAll
     void setup() {
         log.info("Setting up Load Test Data...");
-        cleanup(); // Dọn dẹp dữ liệu cũ rác nếu có
+        cleanup(); // Clean up any stale test data
 
-        // 1. Tạo nhiều Workshop ảo thông qua Service để đa dạng hóa
+        // 1. Create many synthetic workshops through the service to diversify the workload
         for (int w = 1; w <= NUM_WORKSHOPS; w++) {
             WorkshopRequest wsReq = new WorkshopRequest(
                     "LoadTest Workshop " + w,
@@ -80,7 +79,7 @@ public class RegistrationLoadTest {
             testWorkshops.add(workshopService.createWorkshop(wsReq));
         }
 
-        // 2. Tạo 12,000 Sinh viên ảo (thực hiện theo batch nhỏ để nhanh hơn)
+        // 2. Create 12,000 synthetic students (in small batches for speed)
         List<User> usersToSave = new ArrayList<>();
         for (int i = 0; i < TOTAL_REQUESTS; i++) {
             usersToSave.add(User.builder()
@@ -104,8 +103,7 @@ public class RegistrationLoadTest {
     }
 
     private void cleanup() {
-        // Dùng JdbcTemplate để xoá dữ liệu nhanh và gọn, không làm bẩn code repository
-        // chính
+        // Use JdbcTemplate to remove data quickly and keep repository code clean
         try {
             jdbcTemplate.execute(
                     "DELETE FROM payments WHERE registration_id IN (SELECT id FROM registrations WHERE workshop_id IN (SELECT id FROM workshops WHERE title LIKE 'LoadTest Workshop%'))");
@@ -129,10 +127,10 @@ public class RegistrationLoadTest {
 
     @Test
     void testZeroOverbookingWith12000Requests() throws InterruptedException {
-        // Mô phỏng 12,000 requests trong 10 phút (600,000 ms)
-        // Giai đoạn 1: 60% requests (7200) trong 3 phút đầu (180,000 ms) => 40 req/s =>
+        // Simulate 12,000 requests over 10 minutes (600,000 ms)
+        // Phase 1: 60% of requests (7,200) in the first 3 minutes (180,000 ms) => 40 req/s
         // sleep 25ms
-        // Giai đoạn 2: 40% requests (4800) trong 7 phút sau (420,000 ms) => ~11.4 req/s
+        // Phase 2: 40% of requests (4,800) over the next 7 minutes (420,000 ms) => ~11.4 req/s
         // => sleep 87ms
 
         ExecutorService executor = Executors.newFixedThreadPool(150);
@@ -155,7 +153,7 @@ public class RegistrationLoadTest {
         for (int i = 0; i < TOTAL_REQUESTS; i++) {
             User user = testUsers.get(i);
             RegistrationRequest req = new RegistrationRequest();
-            // Phân bổ đều tải cho các workshop khác nhau (VD: i % 5)
+            // Spread the load evenly across different workshops (e.g., i % 5)
             WorkshopResponse targetWorkshop = testWorkshops.get(i % NUM_WORKSHOPS);
             req.setWorkshopId(targetWorkshop.getId());
 
@@ -176,7 +174,7 @@ public class RegistrationLoadTest {
                 }
             });
 
-            // Mô phỏng phân phối request arrival time
+            // Simulate request arrival time distribution
             if (i < phase1Requests) {
                 Thread.sleep(sleepPhase1);
             } else {
@@ -187,7 +185,7 @@ public class RegistrationLoadTest {
             }
         }
 
-        // Chờ các threads xử lý nốt phần còn lại sau khi đã dispatch xong
+        // Wait for the worker threads to finish processing after dispatch completes
         log.info("All requests dispatched. Waiting for pending DB transactions to complete...");
         latch.await(2, TimeUnit.MINUTES);
         executor.shutdown();
@@ -198,16 +196,16 @@ public class RegistrationLoadTest {
         log.info("Failed (Insufficient Seats): {}", failCount.get());
         log.info("Errors (Other exceptions): {}", errorCount.get());
 
-        // Kiểm tra (Assert) logic bảo vệ chỗ ngồi nguyên tử
+        // Assert the atomic seat-protection logic
         int expectedTotalSuccess = TOTAL_SLOTS_PER_WORKSHOP * NUM_WORKSHOPS;
         Assertions.assertEquals(expectedTotalSuccess, successCount.get(),
-                "Chỉ được phép có đúng " + expectedTotalSuccess + " người đăng ký thành công");
+                "Only " + expectedTotalSuccess + " registrations are allowed to succeed");
         Assertions.assertEquals(TOTAL_REQUESTS - expectedTotalSuccess, failCount.get(),
-                "Số còn lại phải báo lỗi hết chỗ");
+                "The remaining requests must report sold out");
         Assertions.assertEquals(0, errorCount.get(),
-                "Không được có lỗi ngoại lệ nào khác (ví dụ: deadlock, timeout DB)");
+                "No other exceptions are allowed (for example, deadlocks or DB timeouts)");
 
-        // Tính toán Benchmark < 200ms
+        // Compute benchmark under 200ms
         long totalTime = responseTimes.stream().mapToLong(Long::longValue).sum();
         double avgTime = totalTime / (double) responseTimes.size();
         long maxTime = responseTimes.stream().mapToLong(Long::longValue).max().orElse(0);
@@ -223,10 +221,9 @@ public class RegistrationLoadTest {
         log.info("Max Response Time: {} ms", maxTime);
         log.info("===============================");
 
-        // Đánh giá tiêu chí: API đăng ký đáp ứng trong dưới 200ms trong điều kiện bình
-        // thường
-        Assertions.assertTrue(avgTime < 200, "Thời gian phản hồi trung bình vượt quá 200ms: " + avgTime + "ms");
-        // Có thể chặt chẽ hơn bằng cách đòi hỏi p95 < 200ms tuỳ theo thoả thuận spec
-        // Assertions.assertTrue(p95Time < 200, "95% request phải phản hồi dưới 200ms");
+        // Evaluate the criterion: the registration API should respond in under 200ms under normal conditions
+        Assertions.assertTrue(avgTime < 200, "Average response time exceeded 200ms: " + avgTime + "ms");
+        // This can be tightened further by requiring p95 < 200ms depending on the agreed spec
+        // Assertions.assertTrue(p95Time < 200, "95% of requests must respond in under 200ms");
     }
 }

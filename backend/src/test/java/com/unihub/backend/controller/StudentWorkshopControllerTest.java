@@ -159,7 +159,7 @@ class StudentWorkshopControllerTest {
         User user = User.builder().id(10L).build();
         when(userRepository.findById(10L)).thenReturn(Optional.of(user));
         when(registrationService.registerFree(any(), any(), anyString()))
-                .thenThrow(new InsufficientSeatsException("Workshop này đã hết chỗ"));
+                .thenThrow(new InsufficientSeatsException("This workshop is sold out"));
 
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                 10L, null,
@@ -169,7 +169,7 @@ class StudentWorkshopControllerTest {
                         .principal(auth)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message", is("Workshop này đã hết chỗ")));
+                .andExpect(jsonPath("$.message", is("This workshop is sold out")));
     }
 
     @Test
@@ -177,7 +177,7 @@ class StudentWorkshopControllerTest {
         User user = User.builder().id(10L).build();
         when(userRepository.findById(10L)).thenReturn(Optional.of(user));
         when(registrationService.registerFree(any(), any(), anyString()))
-                .thenThrow(new DuplicateRegistrationException("Bạn đã đăng ký workshop này rồi"));
+                .thenThrow(new DuplicateRegistrationException("You have already registered for this workshop"));
 
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                 10L, null,
@@ -187,7 +187,7 @@ class StudentWorkshopControllerTest {
                         .principal(auth)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message", is("Bạn đã đăng ký workshop này rồi")));
+                .andExpect(jsonPath("$.message", is("You have already registered for this workshop")));
     }
 
     // ────────────── POST /api/v1/students/workshops/{id}/register-paid ──────────────
@@ -216,7 +216,7 @@ class StudentWorkshopControllerTest {
         User user = User.builder().id(10L).build();
         when(userRepository.findById(10L)).thenReturn(Optional.of(user));
         when(registrationService.initiatePaid(any(), any(), anyString()))
-                .thenThrow(new InsufficientSeatsException("Workshop này đã hết chỗ"));
+                .thenThrow(new InsufficientSeatsException("This workshop is sold out"));
 
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                 10L, null,
@@ -226,6 +226,6 @@ class StudentWorkshopControllerTest {
                         .principal(auth)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.message", is("Workshop này đã hết chỗ")));
+                .andExpect(jsonPath("$.message", is("This workshop is sold out")));
     }
 }

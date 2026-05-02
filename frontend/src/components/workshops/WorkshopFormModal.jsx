@@ -93,7 +93,7 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
                             onChange={handleChange}
                             rows={3}
                             className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                            placeholder="Mô tả nội dung workshop (có thể để AI điền sau)"
+                            placeholder="Describe the workshop content (AI can fill this in later)"
                         />
                     </div>
 

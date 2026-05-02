@@ -441,7 +441,7 @@ class WorkshopServiceTest {
     private WorkshopRequest validRequest() {
         return new WorkshopRequest(
                 "Workshop: Clean Code với Java",
-                "Mô tả workshop về Clean Code.",
+                "Workshop description about Clean Code.",
                 60,
                 BigDecimal.ZERO,
                 LocalDateTime.of(2026, 5, 10, 8, 0),

@@ -27,7 +27,7 @@ public class RealPaymentGateway implements PaymentGatewayClient {
     private final CircuitBreaker circuitBreaker;
     private final TimeLimiter timeLimiter;
 
-    @Value("${payment.gateway.url:http://localhost:9000/pay}")
+    @Value("${payment.gateway.url:http://localhost:8080/api/v1/fake-gateway/pay}")
     private String paymentGatewayUrl;
 
     public RealPaymentGateway(WebClient.Builder webClientBuilder) {
@@ -66,13 +66,13 @@ public class RealPaymentGateway implements PaymentGatewayClient {
             if (ex.getStatusCode().is4xxClientError()) {
                 throw new PaymentFailedException("Payment declined");
             }
-            throw new PaymentServiceUnavailableException("Dịch vụ thanh toán tạm thời không khả dụng");
+            throw new PaymentServiceUnavailableException("The payment service is temporarily unavailable");
         } catch (WebClientRequestException ex) {
-            throw new PaymentServiceUnavailableException("Dịch vụ thanh toán tạm thời không khả dụng");
+            throw new PaymentServiceUnavailableException("The payment service is temporarily unavailable");
         } catch (RuntimeException ex) {
             Throwable cause = ex.getCause();
             if (cause instanceof TimeoutException) {
-                throw new PaymentServiceUnavailableException("Dịch vụ thanh toán tạm thời không khả dụng");
+                throw new PaymentServiceUnavailableException("The payment service is temporarily unavailable");
             }
             throw ex;
         }

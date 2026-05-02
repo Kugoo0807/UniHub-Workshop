@@ -9,10 +9,10 @@ import java.time.LocalDateTime;
 public record WorkshopRequest(
     @NotBlank(message = "Title is required")
     @Size(max = 255, message = "Title must not exceed 255 characters")
-    @Schema(description = "Workshop title", example = "Workshop: Clean Code với Java")
+    @Schema(description = "Workshop title", example = "Workshop: Clean Code with Java")
     String title,
 
-    @Schema(description = "Workshop description (optional, can be filled by AI)", example = "Mô tả nội dung workshop...")
+    @Schema(description = "Workshop description (optional, can be filled by AI)", example = "Workshop content description...")
     String description,
 
     @NotNull(message = "Total slots is required")

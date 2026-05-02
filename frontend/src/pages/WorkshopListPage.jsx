@@ -9,7 +9,7 @@ const formatDateTime = (dt) => {
 };
 
 const formatPrice = (price) => {
-    if (!price || Number(price) === 0) return 'Miễn phí';
+    if (!price || Number(price) === 0) return 'Free';
     return Number(price).toLocaleString('vi-VN') + 'đ';
 };
 
@@ -45,9 +45,9 @@ const WorkshopListPage = () => {
         <div className="mx-auto max-w-5xl px-4 py-8">
             {/* Hero Section */}
             <div className="mb-8 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-8 py-10 text-white shadow-lg">
-                <h1 className="text-3xl font-bold">Tuần Lễ Kỹ Năng & Nghề Nghiệp</h1>
+                <h1 className="text-3xl font-bold">Skills & Careers Week</h1>
                 <p className="mt-2 text-indigo-100">
-                    Khám phá và đăng ký các workshop hấp dẫn tại UniHub.
+                    Discover and register for exciting workshops at UniHub.
                 </p>
             </div>
 
@@ -57,7 +57,7 @@ const WorkshopListPage = () => {
 
             {workshops.length === 0 ? (
                 <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
-                    <p className="text-gray-400">Chưa có workshop nào được mở. Hãy quay lại sau!</p>
+                    <p className="text-gray-400">No workshops are open yet. Please check back later.</p>
                 </div>
             ) : (
                 <div className="grid gap-4 md:grid-cols-2">
@@ -91,7 +91,7 @@ const WorkshopListPage = () => {
                                         ? 'bg-red-100 text-red-600'
                                         : 'bg-indigo-100 text-indigo-600'
                                 }`}>
-                                    {w.remainingSlots === 0 ? 'Hết chỗ' : `Còn ${w.remainingSlots}/${w.totalSlots} chỗ`}
+                                    {w.remainingSlots === 0 ? 'Sold out' : `${w.remainingSlots}/${w.totalSlots} seats left`}
                                 </span>
                             </div>
                         </div>
@@ -110,15 +110,15 @@ const WorkshopListPage = () => {
 
                         <div className="mt-4 space-y-3">
                             <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-500 w-24">Thời gian:</span>
+                                <span className="text-sm font-medium text-gray-500 w-24">Time:</span>
                                 <span className="text-sm text-gray-700">{formatDateTime(selectedWorkshop.startTime)}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-500 w-24">Kết thúc:</span>
+                                <span className="text-sm font-medium text-gray-500 w-24">Ends:</span>
                                 <span className="text-sm text-gray-700">{formatDateTime(selectedWorkshop.endTime)}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-500 w-24">Giá vé:</span>
+                                <span className="text-sm font-medium text-gray-500 w-24">Price:</span>
                                 <span className={`text-sm font-semibold ${
                                     Number(selectedWorkshop.price) === 0 ? 'text-emerald-600' : 'text-amber-600'
                                 }`}>
@@ -126,16 +126,16 @@ const WorkshopListPage = () => {
                                 </span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-500 w-24">Chỗ ngồi:</span>
+                                <span className="text-sm font-medium text-gray-500 w-24">Seats:</span>
                                 <span className="text-sm text-gray-700">
-                                    {selectedWorkshop.remainingSlots}/{selectedWorkshop.totalSlots} còn trống
+                                    {selectedWorkshop.remainingSlots}/{selectedWorkshop.totalSlots} available
                                 </span>
                             </div>
                         </div>
 
                         {selectedWorkshop.description && (
                             <div className="mt-4">
-                                <h4 className="text-sm font-medium text-gray-500 mb-1">Mô tả:</h4>
+                                <h4 className="text-sm font-medium text-gray-500 mb-1">Description:</h4>
                                 <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedWorkshop.description}</p>
                             </div>
                         )}
@@ -145,13 +145,13 @@ const WorkshopListPage = () => {
                                 onClick={() => setSelectedWorkshop(null)}
                                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
                             >
-                                Đóng
+                                Close
                             </button>
                             <button
                                 disabled={selectedWorkshop.remainingSlots === 0}
                                 className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                             >
-                                {selectedWorkshop.remainingSlots === 0 ? 'Hết chỗ' : 'Đăng ký'}
+                                {selectedWorkshop.remainingSlots === 0 ? 'Sold out' : 'Register'}
                             </button>
                         </div>
                     </div>

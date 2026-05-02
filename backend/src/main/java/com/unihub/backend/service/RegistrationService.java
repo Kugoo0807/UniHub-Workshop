@@ -51,7 +51,7 @@ public class RegistrationService {
 
         // Check existing registration to prevent double registration
         registrationRepository.findByUserAndWorkshop(user, workshop).ifPresent(r -> {
-            throw new DuplicateRegistrationException("Bạn đã đăng ký workshop này rồi");
+            throw new DuplicateRegistrationException("You have already registered for this workshop");
         });
 
         String slotKey = String.format(SLOT_KEY_FMT, workshop.getId());
@@ -69,7 +69,7 @@ public class RegistrationService {
         });
 
         if (result == null || result.longValue() < 0) {
-            throw new InsufficientSeatsException("Workshop này đã hết chỗ");
+            throw new InsufficientSeatsException("This workshop is sold out");
         }
 
         Registration registration = Registration.builder()
@@ -97,7 +97,7 @@ public class RegistrationService {
 
         // Check existing registration
         registrationRepository.findByUserAndWorkshop(user, workshop).ifPresent(r -> {
-            throw new DuplicateRegistrationException("Bạn đã đăng ký workshop này rồi");
+            throw new DuplicateRegistrationException("You have already registered for this workshop");
         });
 
         String slotKey = String.format(SLOT_KEY_FMT, workshop.getId());
@@ -134,7 +134,7 @@ public class RegistrationService {
         if (res == null || res.longValue() < 0) {
             // rollback created registration
             registrationRepository.delete(registration);
-            throw new InsufficientSeatsException("Workshop này đã hết chỗ");
+            throw new InsufficientSeatsException("This workshop is sold out");
         }
 
         // reserved successfully; return pending registration info

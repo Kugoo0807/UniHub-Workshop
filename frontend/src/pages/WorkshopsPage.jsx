@@ -10,7 +10,7 @@ const WorkshopsPage = () => {
     const [workshops, setWorkshops] = useState([]);
     const [error, setError] = useState('');
 
-    // State quản lý Popup Thanh toán
+    // Payment modal state
     const [paymentData, setPaymentData] = useState({
         isOpen: false,
         registrationId: null,
