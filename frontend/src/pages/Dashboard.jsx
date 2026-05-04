@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import workshopService from '../services/workshopService';
+import adminWorkshopService from '../services/adminWorkshopService';
 import { useAuth } from '../context/AuthContext';
 import WorkshopFormModal from '../components/workshops/WorkshopFormModal';
 
@@ -53,7 +53,7 @@ const Dashboard = () => {
         try {
             if (!silent) setLoading(true);
             setError('');
-            const data = await workshopService.getAll();
+            const data = await adminWorkshopService.getAll();
             setWorkshops(data);
         } catch (err) {
             setError(err.message);
@@ -90,9 +90,9 @@ const Dashboard = () => {
         try {
             setSubmitting(true);
             if (editingWorkshop) {
-                await workshopService.update(editingWorkshop.id, payload);
+                await adminWorkshopService.update(editingWorkshop.id, payload);
             } else {
-                await workshopService.create(payload);
+                await adminWorkshopService.create(payload);
             }
             setModalOpen(false);
             fetchWorkshops();
@@ -105,7 +105,7 @@ const Dashboard = () => {
 
     const handleDelete = async (id) => {
         try {
-            await workshopService.delete(id);
+            await adminWorkshopService.delete(id);
             setDeleteConfirm(null);
             fetchWorkshops();
         } catch (err) {
@@ -116,7 +116,7 @@ const Dashboard = () => {
 
     const handleViewStats = async (id) => {
         try {
-            const data = await workshopService.getStats(id);
+            const data = await adminWorkshopService.getStats(id);
             setStatsData(data);
         } catch (err) {
             setError(err.message);
@@ -136,7 +136,7 @@ const Dashboard = () => {
             }
 
             try {
-                const latest = await workshopService.getById(workshopId);
+                const latest = await adminWorkshopService.getById(workshopId);
                 const latestDescription = (latest?.description || '').trim();
                 const prev = (previousDescription || '').trim();
 
@@ -179,7 +179,7 @@ const Dashboard = () => {
             aiPollRef.current.cancelled = false;
 
             const previousDescription = aiWorkshop?.description || '';
-            const res = await workshopService.uploadAiSummary(aiWorkshop.id, aiFile);
+            const res = await adminWorkshopService.uploadAiSummary(aiWorkshop.id, aiFile);
             setAiSuccessMessage(res.message || 'AI summary is being processed.');
             setAiFile(null);
 
