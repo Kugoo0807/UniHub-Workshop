@@ -47,7 +47,7 @@ public class WorkshopService {
                 .description(request.description())
                 .totalSlots(request.totalSlots())
                 .remainingSlots(request.totalSlots()) // remaining = total on creation
-                .price(request.price() != null ? request.price() : BigDecimal.ZERO)
+                .price(request.price() != null ? request.price() : 0L)
                 .startTime(request.startTime())
                 .endTime(request.endTime())
                 .build();
@@ -79,7 +79,7 @@ public class WorkshopService {
         workshop.setTitle(request.title());
         workshop.setDescription(request.description());
         workshop.setTotalSlots(request.totalSlots());
-        workshop.setPrice(request.price() != null ? request.price() : BigDecimal.ZERO);
+        workshop.setPrice(request.price() != null ? request.price() : 0L);
         workshop.setStartTime(request.startTime());
         workshop.setEndTime(request.endTime());
 

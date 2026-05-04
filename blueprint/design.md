@@ -212,7 +212,7 @@ Quản lý thông tin chi tiết và số lượng chỗ ngồi của workshop.
 | `title` | VARCHAR(255) | NOT NULL | Tiêu đề workshop |
 | `description` | TEXT | - | Mô tả chi tiết (Tự tạo hoặc dùng AI tóm tắt) |
 | `room_id` | INTEGER | FOREIGN KEY | Tham chiếu đến `rooms(id)` |
-| `speaker` | VARCHAR(255) | NOT NULL | Diễn giả/diễn giả chính |
+| `speaker` | VARCHAR(255) | DEFAULT 'TBD' | Diễn giả/diễn giả chính |
 | `status` | VARCHAR(20) | NOT NULL | Trạng thái: `DRAFT`, `PUBLISHED`, `CANCELLED`, `COMPLETED` |
 | `total_slots` | INTEGER | NOT NULL | Tổng số ghế (VD: 60) |
 | `remaining_slots`| INTEGER | NOT NULL | Số ghế còn lại (Đồng bộ với Redis) |
@@ -222,10 +222,13 @@ Quản lý thông tin chi tiết và số lượng chỗ ngồi của workshop.
 | `registration_start_time` | TIMESTAMP | NOT NULL | Thời gian bắt đầu cho phép sinh viên click đăng ký |
 | `registration_end_time` | TIMESTAMP | NOT NULL | Thời gian đóng form đăng ký |
 
-* Ràng buộc:
-  + 
+**Ràng buộc DB:**
+  + registration_start_time < registration_end_time
   + start_time < end_time
-  + start_time, end_time cùng 1 ngày.
+
+**Ràng buộc Application:**
+  + start_time, end_time diễn ra cùng 1 ngày
+  + remaining_slots ≤ total_slots ≤ capacity (của rooms)
 
 #### 2.1 Bảng `rooms` (Phòng tổ chức)
 
@@ -235,7 +238,7 @@ Lưu thông tin phòng và sơ đồ chỗ ngồi.
 | :--- | :--- | :--- | :--- |
 | `id` | SERIAL | PRIMARY KEY | ID tự tăng |
 | `name` | VARCHAR(100) | UNIQUE, NOT NULL | Tên phòng |
-| `layout_map` | TEXT | NULLABLE | Sơ đồ phòng (URL hoặc JSON) |
+| `layout_map_url` | VARCHAR(1024) | NULLABLE | Sơ đồ phòng (URL hoặc JSON) |
 | `capacity` | INTEGER | NOT NULL | Sức chứa tối đa |
 
 #### 3. Bảng `registrations` (Đăng ký tham dự)
@@ -259,7 +262,7 @@ Entity kết nối sinh viên và workshop.
 | :--- | :--- | :--- | :--- |
 | `id` | SERIAL | PRIMARY KEY | ID tự tăng |
 | `registration_id` | INTEGER | UNIQUE, FK | Mỗi đăng ký chỉ có tối đa 1 thanh toán |
-| `amount` | DECIMAL | NOT NULL | Số tiền thanh toán thực tế |
+| `amount` | BIGINT | NOT NULL | Số tiền thanh toán thực tế |
 | `idempotency_key`| VARCHAR(255) | UNIQUE, NOT NULL | Key chống spam/retry từ Client |
 | `transaction_id` | VARCHAR(255) | - | Mã giao dịch từ Mock Gateway |
 | `status` | VARCHAR(20) | NOT NULL | `PENDING`, `COMPLETED`, `FAILED` |
