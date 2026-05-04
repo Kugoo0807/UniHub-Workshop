@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import Spinner from '../components/common/Spinner';
 
 /**
  * A wrapper component to protect routes based on authentication and RBAC.
@@ -11,7 +12,7 @@ const ProtectedRoute = ({ allowedRoles }) => {
     const location = useLocation();
 
     if (isLoading) {
-        return <div>Loading...</div>; // @TODO: Can be replaced with a Spinner component
+        return <Spinner isFullScreen={true} label="Checking authentication..." />;
     }
 
     if (!isAuthenticated) {
