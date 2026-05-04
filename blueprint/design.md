@@ -211,11 +211,32 @@ Quản lý thông tin chi tiết và số lượng chỗ ngồi của workshop.
 | `id` | SERIAL | PRIMARY KEY | ID tự tăng |
 | `title` | VARCHAR(255) | NOT NULL | Tiêu đề workshop |
 | `description` | TEXT | - | Mô tả chi tiết (Tự tạo hoặc dùng AI tóm tắt) |
+| `room_id` | INTEGER | FOREIGN KEY | Tham chiếu đến `rooms(id)` |
+| `speaker` | VARCHAR(255) | NOT NULL | Diễn giả/diễn giả chính |
+| `status` | VARCHAR(20) | NOT NULL | Trạng thái: `DRAFT`, `PUBLISHED`, `CANCELLED`, `COMPLETED` |
 | `total_slots` | INTEGER | NOT NULL | Tổng số ghế (VD: 60) |
 | `remaining_slots`| INTEGER | NOT NULL | Số ghế còn lại (Đồng bộ với Redis) |
-| `price` | DECIMAL | DEFAULT 0 | Giá vé (nếu có phí) |
-| `start_time` | TIMESTAMP | NOT NULL | Thời gian bắt đầu |
-| `end_time` | TIMESTAMP | NOT NULL | Thời gian kết thúc |
+| `price` | BIGINT | DEFAULT 0 | Giá vé (nếu có phí) |
+| `start_time` | TIMESTAMP | NOT NULL | Thời gian bắt đầu sự kiện |
+| `end_time` | TIMESTAMP | NOT NULL | Thời gian kết thúc sự kiện |
+| `registration_start_time` | TIMESTAMP | NOT NULL | Thời gian bắt đầu cho phép sinh viên click đăng ký |
+| `registration_end_time` | TIMESTAMP | NOT NULL | Thời gian đóng form đăng ký |
+
+* Ràng buộc:
+  + 
+  + start_time < end_time
+  + start_time, end_time cùng 1 ngày.
+
+#### 2.1 Bảng `rooms` (Phòng tổ chức)
+
+Lưu thông tin phòng và sơ đồ chỗ ngồi.
+
+| Column | Type | Constraint | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | SERIAL | PRIMARY KEY | ID tự tăng |
+| `name` | VARCHAR(100) | UNIQUE, NOT NULL | Tên phòng |
+| `layout_map` | TEXT | NULLABLE | Sơ đồ phòng (URL hoặc JSON) |
+| `capacity` | INTEGER | NOT NULL | Sức chứa tối đa |
 
 #### 3. Bảng `registrations` (Đăng ký tham dự)
 
@@ -260,6 +281,10 @@ Xử lý check-in offline và đồng bộ dữ liệu.
 
 - Chọn Index cho các cột thường xuyên tìm kiếm như `student_code` (Users) và `qr_code` (Registrations).
 
+- Ràng buộc tạo/cập nhật workshop: `total_slots` không được vượt quá `rooms.capacity`.
+
+- Khi `workshops.status = CANCELLED` hoặc `COMPLETED`, hệ thống không cho phép đăng ký mới.
+
 ## Thiết kế kiểm soát truy cập
 Áp dụng mô hình RBAC (Role-Based Access Control) qua JWT:
 
@@ -280,31 +305,51 @@ Sử dụng `Strategy Pattern` để phát sự kiện thông báo.
 
 ### Kiểm soát tải đột biến & Tranh chấp ghế (Seat Contention)
 
-- Giải pháp: Sử dụng Redis Lua Script hoạt động như một Token Bucket.
+- Giải pháp gồm 2 lớp:
+  1) **Rate limiting** tại API (Redis Sliding Window hoặc Token Bucket) để chặn client spam và đảm bảo công bằng theo user/IP.
+  2) **Seat locking** bằng Redis Lua Script để đảm bảo zero-overbooking.
 
-- Hoạt động: Khi mở đăng ký, số vé (vd: 60) được đẩy lên Redis. Lua Script thực hiện kiểm tra `GET slots > 0` và `DECR slots` trong 1 atomic operation. Nếu Redis trả về 1 (thành công), Backend mới insert record vào PostgreSQL.
+- Hoạt động:
+  - Rate limiting: mỗi request đăng ký đi qua bộ lọc Redis, giới hạn theo `userId` và fallback theo `IP` (ví dụ 5 req/10s cho đăng ký, 20 req/10s cho xem danh sách). Nếu vượt ngưỡng → trả `429 Too Many Requests`.
+  - Seat locking: khi mở đăng ký, số vé được đẩy lên Redis. Lua Script thực hiện `GET slots > 0` và `DECR slots` trong 1 atomic operation. Nếu Redis trả về 1 (thành công), Backend mới insert record vào PostgreSQL.
 
-- Lý do: Loại bỏ hoàn toàn Row-Level Lock dưới DB, giúp hệ thống chịu được 12.000 TPS mà không crash.
+- Lý do:
+  - Rate limiting giúp hệ thống chịu được burst 12.000 users/10 phút, ngăn spam và đảm bảo công bằng giữa các sinh viên.
+  - Lua Script loại bỏ Row-Level Lock dưới DB, đảm bảo zero-overbooking trong tải cao.
 
 ### Xử lý cổng thanh toán không ổn định
 
-- Giải pháp: Circuit Breaker pattern (sử dụng thư viện Resilience4j).
+- Giải pháp: Circuit Breaker + Timeout (Resilience4j) + Graceful Degradation.
 
-- Hoạt động: Thiết lập ngưỡng lỗi (ví dụ: 50% request thất bại trong 10 giây). Khi cổng thanh toán gặp sự cố, Circuit chuyển sang trạng thái OPEN, lập tức chặn các request gửi đi và trả về mã lỗi 503 ("Gateway đang bảo trì").
+- Hoạt động:
+  - Thiết lập ngưỡng lỗi (ví dụ: 50% request thất bại trong 10 giây), timeout 30 giây.
+  - Khi Circuit OPEN hoặc timeout → trả `503 Service Unavailable`, giữ `registration` ở trạng thái `PENDING` để client retry sau.
+  - Các tính năng không liên quan đến payment (xem danh sách workshop) vẫn hoạt động bình thường.
 
-- Lý do: Tránh hiện tượng Thread Pool quá tải của Spring Boot khi hàng ngàn request bị treo chờ timeout.
+- Lý do: Tránh Thread Pool bị treo khi payment gateway lỗi, đồng thời không ảnh hưởng các luồng không liên quan.
 
 ### Chống trừ tiền hai lần
 
-- Giải pháp: Cơ chế Idempotency Key kết hợp Redis.
+- Giải pháp: Idempotency Key kết hợp Redis + trạng thái "in-flight".
 
-- Hoạt động: Khi client (Web/Mobile) tiến hành thanh toán, phải sinh ra một UUID và đính kèm vào Header `Idempotency-Key`. Spring Boot nhận request sẽ check key này trong Redis. 
+- Hoạt động: Khi client thanh toán, phải sinh UUID và đính kèm `Idempotency-Key`.
+  - Nếu key chưa có: ghi trạng thái `IN_FLIGHT` vào Redis (TTL ngắn), sau đó gọi gateway. Khi có kết quả, cập nhật Redis bằng kết quả cuối cùng (TTL 24h) + PostgreSQL.
+  - Nếu key đã có:
+    - `IN_FLIGHT`: trả `202 Accepted` để client retry sau.
+    - `COMPLETED/FAILED`: trả lại kết quả đã lưu, không gọi gateway.
 
-  + Nếu chưa có: Xử lý giao dịch, lưu Key và kết quả vào Redis (TTL 24h) + PostgreSQL.
+- Lý do: Đảm bảo không bị double-charge khi client retry do timeout hoặc mất kết nối.
 
-  + Nếu đã có: Trực tiếp trả về kết quả đã lưu trữ từ Redis, bỏ qua việc gọi cổng thanh toán.
+### Luồng đăng ký workshop có phí (tóm tắt kỹ thuật)
 
-- Lý do: Đảm bảo dù sinh viên bấm "Thanh toán" 10 lần do mạng lag, giao dịch chỉ diễn ra đúng 1 lần duy nhất.
+- Áp dụng **reserve-before-charge**:
+  1) Tạo `registration` trạng thái `PENDING`.
+  2) Reserve ghế trong Redis với TTL.
+  3) Gọi payment gateway (CB + timeout).
+  4) Nếu thành công: cập nhật `registration` → `SUCCESS`, lưu `payment`, trả QR.
+  5) Nếu thất bại/timeout: release reservation, giữ `PENDING` để retry.
+
+- Lý do: Tránh tình huống bị trừ tiền nhưng hết ghế.
 
 ### Đồng bộ CSV vào lịch cố định ban đêm
 
@@ -328,17 +373,19 @@ Sử dụng `Strategy Pattern` để phát sự kiện thông báo.
 
 ### Phương án xử lý Offline Check-in
 
-- Giải pháp: App xây dựng 2 nút để lấy toàn bộ mã QR hợp lệ của workshop (trước sự kiện), và nút đồng bộ dữ liệu mã QR đã quét lên Server (sau check-in)
+- Giải pháp: Hybrid (Tự động bất đồng bộ kết hợp nút thủ công dự phòng). App Android sử dụng Background Job (như WorkManager) để lắng nghe trạng thái kết nối mạng và tự động đẩy data lên.
 
 - Hoạt động:
 
   + App: 
+    + **Trước sự kiện:** Sử dụng nút "Tải danh sách QR" để lưu toàn bộ QR hợp lệ của Workshop vào SQLite. (Ghi chú UI: Hiển thị dòng "Cập nhật lần cuối lúc: [Thời gian]" trên màn hình quét).
 
-    + Sử dụng nút "Tải danh sách QR" để lưu danh sách QR hợp lệ của Workshop vào SQLite trước khi sự kiện bắt đầu.
+    + **Khi quét:** Kiểm tra nội bộ SQLite. Nếu hợp lệ, đánh dấu `status = 'CHECKED_IN'`, lưu `scanned_time` và cờ `is_synced = false`. Nếu sai, báo lỗi.
     
-    + Mỗi lần quét, lưu vào SQLite nội bộ: Kiểm tra data (so sánh mã QR quét được với danh sách đã lưu). Nếu hợp lệ, đánh dấu `status = 'CHECKED_IN'`, lưu kèm thời gian quét thực tế (`scanned_time`) và cờ đồng bộ `is_synced = false`. Nếu không hợp lệ, báo lỗi vé giả ngay trên màn hình.
-
-    + Sử dụng nút "Đồng bộ lên Server" để khi nào nhân sự thấy có mạng sẽ bấm nút này. Gom tất cả các bản ghi có `is_synced = false` thành một danh sách gửi đi. Sau khi Server trả về thành công, cập nhật `is_synced = true`.
+    + **Đồng bộ tự động (Background Sync):** App thiết lập Job chạy ngầm. Khi phát hiện thiết bị có kết nối Internet (Event: `Network Connected`), tự động gom các record 
+    `is_synced = false` gửi lên Server. Thành công thì update `is_synced = true`.
+    
+    + **Đồng bộ thủ công (Dự phòng):** Cung cấp thêm thao tác nút bấm "Đồng bộ" trong trường hợp OS kill mất tiến trình ngầm.
 
   + Server:
 
