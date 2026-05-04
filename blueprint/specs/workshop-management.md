@@ -9,21 +9,35 @@ Feature này là **nền tảng (P0)** của toàn hệ thống — mọi featur
 ## Schema tham chiếu (`V1__init_database.sql`)
 
 ```sql
+CREATE TABLE rooms (
+   id          BIGSERIAL       PRIMARY KEY,
+   name        VARCHAR(100)    UNIQUE NOT NULL,
+   layout_map  TEXT,
+   capacity    INTEGER         NOT NULL
+);
+```
+
+```sql
 CREATE TABLE workshops (
-    id              BIGSERIAL       PRIMARY KEY,
-    title           VARCHAR(255)    NOT NULL,
-    description     TEXT,                          -- nullable, AI sẽ điền
-    total_slots     INTEGER         NOT NULL,
-    remaining_slots INTEGER         NOT NULL,       -- đồng bộ với Redis
-    price           DECIMAL         DEFAULT 0,
-    start_time      TIMESTAMP       NOT NULL,
-    end_time        TIMESTAMP       NOT NULL
+   id                        BIGSERIAL       PRIMARY KEY,
+   title                     VARCHAR(255)    NOT NULL,
+   description               TEXT,                           -- nullable, AI sẽ điền
+   room_id                   BIGINT          NOT NULL,
+   speaker                   VARCHAR(255)    NOT NULL,
+   status                    VARCHAR(20)     NOT NULL,       -- DRAFT/PUBLISHED/CANCELLED/COMPLETED
+   total_slots               INTEGER         NOT NULL,
+   remaining_slots           INTEGER         NOT NULL,       -- đồng bộ với Redis
+   price                     BIGINT          DEFAULT 0,
+   start_time                TIMESTAMP       NOT NULL,
+   end_time                  TIMESTAMP       NOT NULL,
+   registration_start_time   TIMESTAMP       NOT NULL,
+   registration_end_time     TIMESTAMP       NOT NULL
 );
 ```
 
 **Lưu ý quan trọng từ schema thật:**
 - `id` kiểu **`BIGSERIAL`** → Java entity dùng `Long`.
-- `price` kiểu **`DECIMAL DEFAULT 0`** (không có `NOT NULL`) → dùng `BigDecimal`, set default `BigDecimal.ZERO` trong Entity.
+- `price` kiểu **`BIGINT DEFAULT 0`** → dùng `Long` và default `0L` trong Entity.
 - `description` **nullable** → Admin có thể tạo workshop trước rồi AI điền sau (xem spec `ai-summary.md`).
 - Schema **không có** constraint `CHECK` trên DB → validation xử lý ở **Service / Bean Validation**.
 
@@ -35,24 +49,7 @@ CREATE TABLE workshops (
 
 1. Client gửi `GET /api/workshops` với JWT role `ADMIN`.
 2. Service truy vấn tất cả workshop từ DB.
-3. Với mỗi workshop, đọc `remaining_slots` từ Redis key `workshop:slots:{id}`:
-   - Nếu key tồn tại → dùng giá trị Redis (realtime).
-   - Nếu key không tồn tại → fallback về cột `remaining_slots` trong DB.
-4. Trả về `200 OK` kèm danh sách workshop.
-
-### 2. Xem chi tiết workshop (Admin)
-
-1. Client gửi `GET /api/workshops/{id}` với JWT role `ADMIN`.
-2. Service tìm workshop theo `id`.
-3. Nếu không tìm thấy → trả `404`.
-4. Đọc `remaining_slots` từ Redis (fallback DB).
-5. Trả về `200 OK` kèm chi tiết workshop.
-
-### 1. Xem danh sách workshop (Admin)
-
-1. Client gửi `GET /api/workshops` với JWT role `ADMIN`.
-2. Service truy vấn tất cả workshop từ DB.
-3. Với mỗi workshop, đọc `remaining_slots` từ Redis key `workshop:slots:{id}`:
+3. Với mỗi workshop, đọc `remaining_slots` từ Redis key `workshop:{id}:slots`:
    - Nếu key tồn tại → dùng giá trị Redis (realtime).
    - Nếu key không tồn tại → fallback về cột `remaining_slots` trong DB.
 4. Trả về `200 OK` kèm danh sách workshop.
@@ -70,36 +67,57 @@ CREATE TABLE workshops (
 1. Client gửi `POST /api/workshops` với JWT role `ADMIN`.
 2. Controller validate request body (Bean Validation):
    - `title`: not blank, max 255 ký tự.
+   - `room_id`: not null, room tồn tại.
+   - `speaker`: not blank.
    - `total_slots`: > 0.
    - `price`: >= 0.
    - `start_time`, `end_time`: not null.
-3. Service validate thêm: `end_time` phải sau `start_time`.
-4. Set `remaining_slots = total_slots`, `price` default `0` nếu không truyền.
+   - `registration_start_time`, `registration_end_time`: not null.
+3. Service validate thêm:
+   - `end_time` phải sau `start_time`. (Phía frontend cũng nên có ràng buộc này khi người dùng lựa cho ở frontend)
+   - `registration_start_time` phải trước `registration_end_time`.
+   - `registration_start_time` phải trước `start_time`.
+   - `total_slots <= rooms.capacity`.
+4. Set `remaining_slots = total_slots`, `status = DRAFT` nếu không truyền, `price` default `0` nếu không truyền.
 5. INSERT workshop vào DB.
-6. Set Redis key: `SET workshop:slots:{id} {total_slots}`.
+6. Set Redis key: `SET workshop:{id}:slots {total_slots}`.
 7. Trả về `201 Created` kèm workshop vừa tạo.
 
 ### 4. Cập nhật workshop (Admin)
 
 1. Client gửi `PUT /api/workshops/{id}` với JWT role `ADMIN`.
 2. Nếu `id` không tồn tại → trả `404`.
-3. Cho phép cập nhật: `title`, `description`, `total_slots` (nếu chưa có đăng ký), `price`, `start_time`, `end_time`.
+3. Cho phép cập nhật: `title`, `description`, `room_id`, `speaker`, `status`, `total_slots` (nếu chưa có đăng ký), `price`, `start_time`, `end_time`, `registration_start_time`, `registration_end_time`.
 4. **Không cho phép** thay đổi `total_slots` nếu đã có bản ghi trong bảng `registrations` với `workshop_id` này.
-5. Nếu vi phạm rule trên → trả `409 Conflict`.
+5. Khi cập nhật `total_slots` hoặc `room_id`, phải đảm bảo `total_slots <= rooms.capacity`.
+6. Nếu vi phạm rule trên → trả `409 Conflict`.
 6. Trả về `200 OK` kèm workshop đã cập nhật.
 
-### 5. Xóa workshop (Admin)
+### 5. Hủy workshop (Admin)
+
+1. Client gửi `PUT /api/workshops/{id}/cancel` với JWT role `ADMIN`.
+2. Nếu `id` không tồn tại → trả `404`.
+3. Kiểm tra trạng thái hiện tại của workshop:
+   - Nếu `status` đã là `COMPLETED` hoặc `CANCELLED` → trả `400 Bad Request` (Không thể hủy một workshop đã xong hoặc đã hủy).
+4. Thực hiện Hủy:
+   - Cập nhật `status = 'CANCELLED'` trong bảng `workshops`.
+   - Các bản ghi trong `registrations` giữ nguyên (để làm lịch sử hoặc hỗ trợ hoàn tiền sau này nếu có).
+   - Xóa key Redis `workshop:{id}:slots` để chặn tuyệt đối các request đăng ký mới đang in-flight.
+   - Phải có thông báo xác nhận hoàn trả tiền đối với workshop có phí (@TODO ở tính năng hệ thống thông báo)
+5. Trả về `200 OK` kèm thông báo đã hủy.
+
+### 6. Xóa workshop (Admin)
 
 1. Client gửi `DELETE /api/workshops/{id}` với JWT role `ADMIN`.
 2. Nếu `id` không tồn tại → trả `404`.
-3. **Không cho phép** xóa nếu bảng `registrations` có bản ghi với `workshop_id` này và `status = 'SUCCESS'`.
-4. Nếu vi phạm → trả `409 Conflict`.
+3. **Chỉ cho phép xóa (Hard Delete)** nếu workshop có `status = DRAFT`. 
+4. Nếu vi phạm (đã có người đăng ký) → trả `409 Conflict` kèm thông báo: "Chỉ được xóa Draft Workshop".
 5. Khi xóa thành công:
    - `DELETE` record trong DB.
-   - `DEL workshop:slots:{id}` trên Redis.
+   - `DEL workshop:{id}:slots` trên Redis.
 6. Trả về `204 No Content`.
 
-### 6. Xem thống kê workshop (Admin)
+### 7. Xem thống kê workshop (Admin)
 
 1. Client gửi `GET /api/workshops/{id}/stats` với JWT role `ADMIN`.
 2. Nếu `id` không tồn tại → trả `404`.
@@ -119,8 +137,9 @@ CREATE TABLE workshops (
 | `GET` | `/api/workshops` | ADMIN | Lấy danh sách workshop |
 | `GET` | `/api/workshops/{id}` | ADMIN | Lấy chi tiết workshop |
 | `POST` | `/api/workshops` | ADMIN | Tạo workshop mới |
-| `PUT` | `/api/workshops/{id}` | ADMIN | Cập nhật workshop |
-| `DELETE` | `/api/workshops/{id}` | ADMIN | Xóa workshop |
+| `PUT` | `/api/workshops/{id}` | ADMIN | Cập nhật thông tin workshop |
+| `PUT` | `/api/workshops/{id}/cancel` | ADMIN | Hủy workshop (Đổi status) |
+| `DELETE` | `/api/workshops/{id}` | ADMIN | Xóa vĩnh viễn workshop |
 | `GET` | `/api/workshops/{id}/stats` | ADMIN | Xem thống kê đăng ký (realtime) |
 
 ---
@@ -134,10 +153,15 @@ CREATE TABLE workshops (
 {
   "title": "Workshop: Clean Code với Java",
   "description": null,
+   "room_id": 1,
+   "speaker": "Nguyen Van A",
+   "status": "DRAFT",
   "total_slots": 60,
-  "price": 0,
+   "price": 0,
   "start_time": "2026-05-10T08:00:00",
-  "end_time": "2026-05-10T12:00:00"
+   "end_time": "2026-05-10T12:00:00",
+   "registration_start_time": "2026-05-05T08:00:00",
+   "registration_end_time": "2026-05-10T07:30:00"
 }
 ```
 
@@ -147,11 +171,16 @@ CREATE TABLE workshops (
   "id": 1,
   "title": "Workshop: Clean Code với Java",
   "description": null,
+   "room_id": 1,
+   "speaker": "Nguyen Van A",
+   "status": "DRAFT",
   "total_slots": 60,
-  "remaining_slots": 60,
-  "price": 0,
+   "remaining_slots": 60,
+   "price": 0,
   "start_time": "2026-05-10T08:00:00",
-  "end_time": "2026-05-10T12:00:00"
+   "end_time": "2026-05-10T12:00:00",
+   "registration_start_time": "2026-05-05T08:00:00",
+   "registration_end_time": "2026-05-10T07:30:00"
 }
 ```
 
@@ -180,6 +209,8 @@ CREATE TABLE workshops (
 | `POST /api/workshops` — Thiếu `title` hoặc `total_slots` | `400` | Bean Validation trả danh sách lỗi |
 | `POST /api/workshops` — `end_time` trước `start_time` | `400` | Service throw `IllegalArgumentException` |
 | `POST /api/workshops` — `total_slots = 0` hoặc âm | `400` | Bean Validation (`@Positive`) |
+| `POST /api/workshops` — `total_slots > rooms.capacity` | `409` | Service throw `ConflictException` |
+| `POST /api/workshops` — `room_id` không tồn tại | `404` | Service throw `ResourceNotFoundException` |
 | `POST /api/workshops` — Student JWT | `403` | Spring Security chặn |
 | `PUT /api/workshops/{id}` — Thay đổi `total_slots` khi đã có đăng ký | `409` | Service throw `ConflictException` |
 | `DELETE /api/workshops/{id}` — Có đăng ký `status = 'SUCCESS'` | `409` | Service throw `ConflictException` |
@@ -190,8 +221,10 @@ CREATE TABLE workshops (
 ## Ràng buộc
 
 - **Security:** Mọi endpoints (kể cả GET) đều yêu cầu `@PreAuthorize("hasRole('ADMIN')")` tại Controller. Tính năng này dành riêng cho Admin.
-- **Redis:** Key pattern `workshop:slots:{id}`. Không đặt TTL (tồn tại vĩnh viễn đến khi xóa thủ công). Feature **Registration** (downstream) sẽ dùng Redis Lua Script để `DECR` atomic trên key này.
+- **Redis:** Key pattern `workshop:{id}:slots`. Không đặt TTL (tồn tại vĩnh viễn đến khi xóa thủ công). Feature **Registration** (downstream) sẽ dùng Redis Lua Script để `DECR` atomic trên key này.
 - **Validation:** `end_time > start_time` cần xử lý ở **Service layer** vì Bean Validation không hỗ trợ cross-field validation trên record.
+- **Room capacity:** `total_slots <= rooms.capacity` bắt buộc ở Service layer.
+- **Status:** Chỉ cho phép `DRAFT`, `PUBLISHED`, `CANCELLED`, `COMPLETED`.
 - **Flyway:** Schema `workshops` đã tồn tại trong `V1__init_database.sql`. Seed data mẫu có trong `V2__seed_user_workshop.sql` (2 workshop mẫu). Migration tiếp theo nên đánh số **`V4__...`** (V3 đã được sử dụng cho feature Auth: `V3__modify_users_for_activation.sql`).
 
 ---
@@ -217,21 +250,36 @@ public class Workshop {
     @Column(columnDefinition = "TEXT")
     private String description;   // nullable
 
+   @Column(name = "room_id", nullable = false)
+   private Long roomId;
+
+   @Column(nullable = false)
+   private String speaker;
+
+   @Column(nullable = false, length = 20)
+   private String status; // DRAFT/PUBLISHED/CANCELLED/COMPLETED
+
     @Column(name = "total_slots", nullable = false)
     private Integer totalSlots;
 
     @Column(name = "remaining_slots", nullable = false)
     private Integer remainingSlots;
 
-    @Column(columnDefinition = "DECIMAL DEFAULT 0")
-    @Builder.Default
-    private BigDecimal price = BigDecimal.ZERO; // DECIMAL DEFAULT 0 → BigDecimal
+   @Column(columnDefinition = "BIGINT DEFAULT 0")
+   @Builder.Default
+   private Long price = 0L; // BIGINT DEFAULT 0 → Long
 
     @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;
 
     @Column(name = "end_time", nullable = false)
-    private LocalDateTime endTime;
+   private LocalDateTime endTime;
+
+   @Column(name = "registration_start_time", nullable = false)
+   private LocalDateTime registrationStartTime;
+
+   @Column(name = "registration_end_time", nullable = false)
+   private LocalDateTime registrationEndTime;
 }
 ```
 
@@ -244,17 +292,32 @@ public record WorkshopRequest(
 
     String description,
 
+   @NotNull
+   Long roomId,
+
+   @NotBlank @Size(max = 255)
+   String speaker,
+
+   @NotBlank
+   String status,
+
     @NotNull @Positive
     Integer totalSlots,
 
-    @NotNull @DecimalMin("0")
-    BigDecimal price,
+   @NotNull @Min(0)
+   Long price,
 
     @NotNull
     LocalDateTime startTime,
 
-    @NotNull
-    LocalDateTime endTime
+   @NotNull
+   LocalDateTime endTime,
+
+   @NotNull
+   LocalDateTime registrationStartTime,
+
+   @NotNull
+   LocalDateTime registrationEndTime
 ) {}
 ```
 
