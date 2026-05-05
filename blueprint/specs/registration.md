@@ -67,6 +67,10 @@ Tài liệu này chỉ mô tả **luồng API của sinh viên**, xử lý Contr
 - Circuit Breaker mở hoặc Payment Gateway timeout.
 - `registrations` giữ `PENDING` để client retry với cùng `Idempotency-Key`.
 
+### Xử lý Timeout Thanh Toán (Background Job)
+- Thời gian giữ chỗ mặc định: 10 phút.
+- Nếu quá thời gian này mà chưa nhận được kết quả thanh toán thành công, Background Job sẽ tự động: cập nhật registrations từ PENDING sang CANCELLED và gọi SeatLockingService.releaseSeat(workshopId, userId) để hoàn ghế lại cho hệ thống.
+
 ## Ràng buộc
 - **Hiệu năng:** API đăng ký dưới 200ms trong điều kiện bình thường.
 - **Tính nhất quán dữ liệu:**

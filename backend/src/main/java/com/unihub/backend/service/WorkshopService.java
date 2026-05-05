@@ -9,20 +9,27 @@ import com.unihub.backend.exception.ResourceNotFoundException;
 import com.unihub.backend.repository.RegistrationRepository;
 import com.unihub.backend.repository.WorkshopRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class WorkshopService {
 
     private final WorkshopRepository workshopRepository;
     private final RegistrationRepository registrationRepository;
+    private final SeatLockingService seatLockingService;
 
     // ────────────── Admin ──────────────
 
@@ -46,7 +53,7 @@ public class WorkshopService {
                 .title(request.title())
                 .description(request.description())
                 .totalSlots(request.totalSlots())
-                .remainingSlots(request.totalSlots()) // remaining = total on creation
+                .remainingSlots(request.totalSlots())
                 .price(request.price() != null ? request.price() : 0L)
                 .startTime(request.startTime())
                 .endTime(request.endTime())
@@ -54,7 +61,10 @@ public class WorkshopService {
 
         Workshop saved = workshopRepository.save(workshop);
 
-        // TODO: Redis SET workshop:slots:{id} = total_slots (Phase: Redis integration)
+        // Initialize Redis slot counter with TTL
+        long ttlSeconds = computeSlotTtl(saved);
+        seatLockingService.initSlots(String.valueOf(saved.getId()), saved.getTotalSlots(), ttlSeconds);
+        log.info("Initialized Redis slots for workshop {}: total={}, TTL={}s", saved.getId(), saved.getTotalSlots(), ttlSeconds);
 
         return toResponse(saved);
     }
@@ -65,14 +75,13 @@ public class WorkshopService {
 
         validateTimeRange(request.startTime(), request.endTime());
 
-        // Business rule: cannot change total_slots if registrations exist
+        int oldTotalSlots = workshop.getTotalSlots();
+
         if (!workshop.getTotalSlots().equals(request.totalSlots())) {
             if (registrationRepository.existsByWorkshopId(id)) {
                 throw new ConflictException(
                         "Cannot change total_slots because registrations already exist for this workshop");
             }
-            // Update remaining_slots to match new total_slots since there are no
-            // registrations
             workshop.setRemainingSlots(request.totalSlots());
         }
 
@@ -84,6 +93,19 @@ public class WorkshopService {
         workshop.setEndTime(request.endTime());
 
         Workshop saved = workshopRepository.save(workshop);
+
+        // Sync slot changes to Redis
+        if (!Integer.valueOf(oldTotalSlots).equals(request.totalSlots())) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    seatLockingService.updateSlots(String.valueOf(id), request.totalSlots(), oldTotalSlots);
+                    log.info("Successfully updated Redis slots for workshop {} after DB commit: {} -> {}",
+                            id, oldTotalSlots, request.totalSlots());
+                }
+            });
+        }
+
         return toResponse(saved);
     }
 
@@ -91,7 +113,6 @@ public class WorkshopService {
     public void deleteWorkshop(Long id) {
         Workshop workshop = findWorkshopOrThrow(id);
 
-        // Business rule: cannot delete if there are SUCCESS registrations
         if (registrationRepository.existsByWorkshopIdAndStatus(id, "SUCCESS")) {
             throw new ConflictException(
                     "Cannot delete workshop because it has successful registrations");
@@ -99,15 +120,16 @@ public class WorkshopService {
 
         workshopRepository.delete(workshop);
 
-        // TODO: Redis DEL workshop:slots:{id} (Phase: Redis integration)
+        // Clean up Redis slot keys
+        seatLockingService.removeSlots(String.valueOf(id));
+        log.info("Removed Redis slots for deleted workshop {}", id);
     }
 
     public WorkshopStatsResponse getWorkshopStats(Long id) {
         Workshop workshop = findWorkshopOrThrow(id);
 
-        // TODO: Read remaining_slots from Redis (Phase: Redis integration)
-        // For now, read from DB column
-        int remainingSlots = workshop.getRemainingSlots();
+        // Read remaining_slots from Redis (authoritative source)
+        int remainingSlots = getAccurateRemainingSlots(workshop);
 
         long registeredCount = registrationRepository.countByWorkshopIdAndStatus(id, "SUCCESS");
 
@@ -115,7 +137,6 @@ public class WorkshopService {
                 ? (double) (workshop.getTotalSlots() - remainingSlots) / workshop.getTotalSlots() * 100
                 : 0.0;
 
-        // Round to 1 decimal
         fillRate = BigDecimal.valueOf(fillRate)
                 .setScale(1, RoundingMode.HALF_UP)
                 .doubleValue();
@@ -137,22 +158,50 @@ public class WorkshopService {
                 .orElseThrow(() -> new ResourceNotFoundException("Workshop not found with id: " + id));
     }
 
-    private void validateTimeRange(java.time.LocalDateTime startTime, java.time.LocalDateTime endTime) {
+    private void validateTimeRange(LocalDateTime startTime, LocalDateTime endTime) {
         if (endTime != null && startTime != null && !endTime.isAfter(startTime)) {
             throw new IllegalArgumentException("end_time must be after start_time");
         }
     }
 
+    /**
+     * Compute slot TTL in seconds: (registration_end_time - now) + 24h buffer.
+     */
+    private long computeSlotTtl(Workshop w) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime end = w.getRegistrationEndTime() != null
+                ? w.getRegistrationEndTime()
+                : w.getEndTime();
+        long seconds = Duration.between(now, end).getSeconds();
+        // Add 24h buffer
+        seconds += Duration.ofHours(24).getSeconds();
+        return Math.max(seconds, 3600); // minimum 1 hour
+    }
+
+    /**
+     * Convert Workshop entity to WorkshopResponse DTO.
+     * For remaining_slots, prefer Redis value if available, otherwise fall back to DB.
+     */
     private WorkshopResponse toResponse(Workshop w) {
+        int remainingSlots = getAccurateRemainingSlots(w);
+
         return WorkshopResponse.builder()
                 .id(w.getId())
                 .title(w.getTitle())
                 .description(w.getDescription())
                 .totalSlots(w.getTotalSlots())
-                .remainingSlots(w.getRemainingSlots()) // TODO: override with Redis value
+                .remainingSlots(remainingSlots)
                 .price(w.getPrice())
                 .startTime(w.getStartTime())
                 .endTime(w.getEndTime())
                 .build();
+    }
+
+    /**
+     * Get the most accurate remaining slots for a workshop, preferring Redis value if available.
+     */
+    private int getAccurateRemainingSlots(Workshop workshop) {
+        int redisSlots = seatLockingService.getRemainingSlots(String.valueOf(workshop.getId()));
+        return redisSlots >= 0 ? redisSlots : workshop.getRemainingSlots();
     }
 }
