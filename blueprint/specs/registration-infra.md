@@ -46,7 +46,7 @@ interface IdempotencyService {
 ## Cơ chế hạ tầng
 
 ### 1. Redis Seat Lock (Lua Script)
-- Key: `workshop:{workshopId}:slots`
+- Key: `workshop:{workshopId}:slots`. Đồng thời set TTL cho key này = (Thời gian kết thúc đăng ký workshop - Hiện tại) + 24h.
 - Hành vi: kiểm tra và giảm chỗ trong một thao tác atomic.
 
 ```lua
@@ -60,8 +60,10 @@ end
 ```
 
 ### 2. Release Seat
+- Khi reserveSeat thành công, cần tạo một key phụ dạng `hold:{workshopId}:{userId}` với TTL = 10 phút.
 - Khi cần hoàn chỗ, hệ thống tăng lại key `workshop:{workshopId}:slots`.
 - Release phải idempotent theo `userId` nếu có tracking reservation key riêng (tùy triển khai).
+- Thiết lập một Job ngầm (Redis Keyspace Notifications) lắng nghe sự kiện EXPIRED của key hold:*. Khi key này hết hạn, Job ngầm tự động kích hoạt hàm `releaseSeat(workshopId, userId)`.
 
 ### 3. Rate Limiting
 - Áp dụng theo `userId` và IP để chặn spam.

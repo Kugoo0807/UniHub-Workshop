@@ -22,6 +22,19 @@ spring:
   flyway:
     enabled: true
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: PT2S
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 4
+          max-wait: PT2S
+
 jwt:
   access-secret: ${JWT_ACCESS_SECRET:Yn2kj3h4g5f6d7s8a9w0e1r2t3y4u5i6o7p8q9z0x1c2v3b4n5m6}
   refresh-secret: ${JWT_REFRESH_SECRET:Lp9o8i7u6y5t4r3e2w1q0a9z8x7c6v5b4n3m2k1j0h9g8f7d6s5a4}

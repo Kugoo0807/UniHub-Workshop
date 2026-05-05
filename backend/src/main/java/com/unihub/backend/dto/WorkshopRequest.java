@@ -2,7 +2,6 @@ package com.unihub.backend.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Schema(description = "Request payload for creating or updating a workshop.")
@@ -21,9 +20,9 @@ public record WorkshopRequest(
     Integer totalSlots,
 
     @NotNull(message = "Price is required")
-    @DecimalMin(value = "0", message = "Price must be >= 0")
+    @Min(value = 0, message = "Price must be >= 0")
     @Schema(description = "Ticket price (0 for free)", example = "0")
-    BigDecimal price,
+    Long price,
 
     @NotNull(message = "Start time is required")
     @Schema(description = "Workshop start time", example = "2026-05-10T08:00:00")

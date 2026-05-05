@@ -7,7 +7,7 @@ const GuestRoute = () => {
 
     if (isAuthenticated) {
         // Redirect authenticated users to their specific dashboard
-        const redirectPath = user?.role === 'ADMIN' ? '/admin' : '/student';
+        const redirectPath = user?.role === 'ADMIN' ? '/admin' : '/';
         return <Navigate to={redirectPath} replace />;
     }
 

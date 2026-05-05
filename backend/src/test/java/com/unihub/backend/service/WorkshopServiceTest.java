@@ -74,7 +74,7 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0));
         Workshop saved = workshopFromRequest(request, 2L);
-        saved.setPrice(BigDecimal.ZERO);
+        saved.setPrice(0L);
 
         when(workshopRepository.save(any(Workshop.class))).thenReturn(saved);
 
@@ -82,14 +82,14 @@ class WorkshopServiceTest {
 
         ArgumentCaptor<Workshop> captor = ArgumentCaptor.forClass(Workshop.class);
         verify(workshopRepository).save(captor.capture());
-        assertEquals(BigDecimal.ZERO, captor.getValue().getPrice());
+        assertEquals(0L, captor.getValue().getPrice());
     }
 
         // Verify Workshop creation allows null description
     @Test
     void createWorkshop_nullDescription_allowsNull() {
         WorkshopRequest request = new WorkshopRequest(
-                "Workshop No Desc", null, 30, BigDecimal.ZERO,
+                "Workshop No Desc", null, 30, 0L,
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0));
         Workshop saved = workshopFromRequest(request, 3L);
@@ -107,7 +107,7 @@ class WorkshopServiceTest {
     @Test
     void createWorkshop_endTimeBeforeStartTime_throwsIllegalArgument() {
         WorkshopRequest request = new WorkshopRequest(
-                "Bad Times", null, 30, BigDecimal.ZERO,
+                "Bad Times", null, 30, 0L,
                 LocalDateTime.of(2026, 5, 10, 12, 0),
                 LocalDateTime.of(2026, 5, 10, 8, 0)
         );
@@ -125,7 +125,7 @@ class WorkshopServiceTest {
     void createWorkshop_endTimeEqualsStartTime_throwsIllegalArgument() {
         LocalDateTime sameTime = LocalDateTime.of(2026, 5, 10, 10, 0);
         WorkshopRequest request = new WorkshopRequest(
-                "Same Times", null, 30, BigDecimal.ZERO, sameTime, sameTime);
+                "Same Times", null, 30, 0L, sameTime, sameTime);
 
         assertThrows(IllegalArgumentException.class, () -> workshopService.createWorkshop(request));
         verify(workshopRepository, never()).save(any(Workshop.class));
@@ -183,7 +183,7 @@ class WorkshopServiceTest {
         existing.setTotalSlots(60);
 
         WorkshopRequest request = new WorkshopRequest(
-                "Updated Title", null, 100, BigDecimal.ZERO,
+                "Updated Title", null, 100, 0L,
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0));
 
@@ -205,7 +205,7 @@ class WorkshopServiceTest {
         existing.setTotalSlots(60);
 
         WorkshopRequest request = new WorkshopRequest(
-                "Updated Title", "New desc", 100, BigDecimal.TEN,
+                "Updated Title", "New desc", 100, 10L,
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0));
 
@@ -227,7 +227,7 @@ class WorkshopServiceTest {
         existing.setTotalSlots(60);
 
         WorkshopRequest request = new WorkshopRequest(
-                "Updated Title Only", null, 60, BigDecimal.ZERO,
+                "Updated Title Only", null, 60, 0L,
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0));
 
@@ -257,7 +257,7 @@ class WorkshopServiceTest {
         when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
 
         WorkshopRequest request = new WorkshopRequest(
-                "Bad Update", null, 60, BigDecimal.ZERO,
+                "Bad Update", null, 60, 0L,
                 LocalDateTime.of(2026, 5, 10, 12, 0),
                 LocalDateTime.of(2026, 5, 10, 8, 0));
 
@@ -408,7 +408,7 @@ class WorkshopServiceTest {
         existing.setTotalSlots(60);
 
         WorkshopRequest request = new WorkshopRequest(
-                "New Title", "New Description", 60, new BigDecimal("50000"),
+                "New Title", "New Description", 60, 50000L,
                 LocalDateTime.of(2026, 6, 1, 9, 0),
                 LocalDateTime.of(2026, 6, 1, 17, 0));
 
@@ -431,7 +431,7 @@ class WorkshopServiceTest {
                 "Workshop: Clean Code với Java",
                 "Mô tả workshop về Clean Code.",
                 60,
-                BigDecimal.ZERO,
+                0L,
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0));
     }
@@ -443,7 +443,7 @@ class WorkshopServiceTest {
                 .description(null)
                 .totalSlots(60)
                 .remainingSlots(60)
-                .price(BigDecimal.ZERO)
+                .price(0L)
                 .startTime(LocalDateTime.of(2026, 5, 10, 8, 0))
                 .endTime(LocalDateTime.of(2026, 5, 10, 12, 0))
                 .build();
@@ -456,7 +456,7 @@ class WorkshopServiceTest {
                 .description(request.description())
                 .totalSlots(request.totalSlots())
                 .remainingSlots(request.totalSlots())
-                .price(request.price() != null ? request.price() : BigDecimal.ZERO)
+                .price(request.price() != null ? request.price() : 0L)
                 .startTime(request.startTime())
                 .endTime(request.endTime())
                 .build();

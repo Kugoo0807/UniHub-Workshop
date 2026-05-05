@@ -108,3 +108,8 @@
 - Mật khẩu không bao giờ được trả về trong API response (Yêu cầu sử dụng @JsonIgnore ở thuộc tính password trong Entity User).
 
 - Xử lý tầng Security: Trừ `/api/test`, `/api/v1/auth/**`, `/v3/api-docs/**`, `/swagger-ui/**`, `/swagger-ui.html`, cần được kiểm tra luồng 6.
+
+## Frontend routing (Web)
+- Người dùng chưa xác thực chỉ được truy cập: `/login`, `/register`, `/unauthorized`.
+- Các route khác phải redirect về `/login`.
+- Admin có thể truy cập tất cả route đã xác thực.

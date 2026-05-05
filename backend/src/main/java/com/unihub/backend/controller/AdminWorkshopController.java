@@ -21,10 +21,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/workshops")
+@RequestMapping("/api/v1/admin/workshops")
 @RequiredArgsConstructor
 @Tag(name = "Workshop Management", description = "CRUD endpoints for workshops.")
-public class WorkshopController {
+public class AdminWorkshopController {
 
     private final WorkshopService workshopService;
     private final WorkshopAiService workshopAiService;

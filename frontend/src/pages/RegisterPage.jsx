@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import PasswordField from '../components/common/PasswordField';
 import authService from '../services/authService';
 
 const RegisterPage = () => {
@@ -130,37 +131,25 @@ const RegisterPage = () => {
                         />
                     </div>
 
-                    <div>
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                            Password
-                        </label>
-                        <input
-                            id="password"
-                            type="password"
-                            value={formData.password}
-                            onChange={handleChange}
-                            required
-                            minLength={6}
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm 
-                                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                    </div>
+                    <PasswordField
+                        id="password"
+                        label="Password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        required
+                        minLength={6}
+                        autoComplete="new-password"
+                    />
 
-                    <div>
-                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                            Confirm Password
-                        </label>
-                        <input
-                            id="confirmPassword"
-                            type="password"
-                            value={formData.confirmPassword}
-                            onChange={handleChange}
-                            required
-                            minLength={6}
-                            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm 
-                                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                        />
-                    </div>
+                    <PasswordField
+                        id="confirmPassword"
+                        label="Confirm Password"
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        required
+                        minLength={6}
+                        autoComplete="new-password"
+                    />
 
                     <button
                         type="submit"
