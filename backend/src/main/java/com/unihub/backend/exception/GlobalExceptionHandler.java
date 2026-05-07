@@ -85,6 +85,16 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(HttpStatus.valueOf(ex.getStatusCode().value()), message);
     }
 
+    @ExceptionHandler(PaymentGatewayUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentGatewayUnavailable(PaymentGatewayUnavailableException ex) {
+        return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage());
+    }
+
+    @ExceptionHandler(PaymentFailedException.class)
+    public ResponseEntity<ErrorResponse> handlePaymentFailedException(PaymentFailedException ex) {
+        return buildErrorResponse(HttpStatus.PAYMENT_REQUIRED, ex.getMessage());
+    }
+
     // Compatibility layer for services still throwing plain RuntimeException.
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntimeException(RuntimeException ex) {

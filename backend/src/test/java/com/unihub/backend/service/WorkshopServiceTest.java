@@ -9,11 +9,15 @@ import com.unihub.backend.exception.ResourceNotFoundException;
 import com.unihub.backend.repository.RegistrationRepository;
 import com.unihub.backend.repository.WorkshopRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -25,6 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class WorkshopServiceTest {
 
     @Mock
@@ -33,9 +38,57 @@ class WorkshopServiceTest {
     @Mock
     private RegistrationRepository registrationRepository;
 
+    // Mock the SeatLockingService which is an external integration (Redis).
+    // WorkshopService calls into this for slot initialization/removal and
+    // to fetch accurate remaining slots. In unit tests we mock it to avoid
+    // requiring a running Redis instance.
+    @Mock
+    private com.unihub.backend.service.SeatLockingService seatLockingService;
+
     @InjectMocks
     private WorkshopService workshopService;
 
+    /**
+     * Prepare lenient stubs for external/side-effecting integrations used by
+     * WorkshopService. This avoids NPEs in unit tests and removes the need to
+     * run Redis during local unit test execution.
+     */
+    @BeforeEach
+    void initMocks() {
+        // stub void methods to do nothing
+        doNothing().when(seatLockingService).initSlots(anyString(), anyInt(), anyLong());
+        doNothing().when(seatLockingService).removeSlots(anyString());
+
+        // Provide a dynamic remaining-slots answer so tests that stub the
+        // repository remainingSlots value still see the expected value from
+        // the mocked SeatLockingService. The key passed by WorkshopService is
+        // typically in the form "ws-{id}", so parse the id and query the
+        // mocked repository; fallback to 60 when parsing fails.
+        lenient().when(seatLockingService.getRemainingSlots(anyString())).thenAnswer(invocation -> {
+            Object arg = invocation.getArgument(0);
+            if (arg instanceof String) {
+                String key = (String) arg;
+                // Try numeric id first (WorkshopService passes String.valueOf(id))
+                try {
+                    Long id = Long.parseLong(key);
+                    Optional<Workshop> w = workshopRepository.findById(id);
+                    if (w.isPresent()) return w.get().getRemainingSlots();
+                } catch (NumberFormatException ignored) {
+                    // Fallback: support keys like "ws-{id}" if encountered
+                    if (key.startsWith("ws-")) {
+                        String idStr = key.substring(3);
+                        try {
+                            Long id = Long.parseLong(idStr);
+                            Optional<Workshop> w = workshopRepository.findById(id);
+                            if (w.isPresent()) return w.get().getRemainingSlots();
+                        } catch (NumberFormatException ignored2) {
+                        }
+                    }
+                }
+            }
+            return 60;
+        });
+    }
     // WM-UT-01: Create valid workshop
 
         // Verify successful Workshop creation with valid data
@@ -213,11 +266,20 @@ class WorkshopServiceTest {
         when(registrationRepository.existsByWorkshopId(1L)).thenReturn(false);
         when(workshopRepository.save(any(Workshop.class))).thenReturn(existing);
 
-        WorkshopResponse response = workshopService.updateWorkshop(1L, request);
+        // `WorkshopService.updateWorkshop` registers an after-commit callback
+        // via TransactionSynchronizationManager. In plain unit tests there is
+        // no active transaction, so enable a test synchronization scope to
+        // allow registration of the callback and avoid IllegalStateException.
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            WorkshopResponse response = workshopService.updateWorkshop(1L, request);
 
-        verify(workshopRepository).save(existing);
-        assertEquals(100, existing.getTotalSlots());
-        assertEquals(100, existing.getRemainingSlots());
+            verify(workshopRepository).save(existing);
+            assertEquals(100, existing.getTotalSlots());
+            assertEquals(100, existing.getRemainingSlots());
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
         // Verify successful Workshop update when keeping total slots unchanged (even with registrations)
@@ -419,7 +481,8 @@ class WorkshopServiceTest {
 
         assertEquals("New Title", existing.getTitle());
         assertEquals("New Description", existing.getDescription());
-        assertEquals(new BigDecimal("50000"), existing.getPrice());
+        // `Workshop.price` is stored as Long in the entity; assert the Long value.
+        assertEquals(50000L, existing.getPrice());
         assertEquals(LocalDateTime.of(2026, 6, 1, 9, 0), existing.getStartTime());
         assertEquals(LocalDateTime.of(2026, 6, 1, 17, 0), existing.getEndTime());
     }
