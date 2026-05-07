@@ -194,6 +194,8 @@ public class WorkshopService {
                 .price(w.getPrice())
                 .startTime(w.getStartTime())
                 .endTime(w.getEndTime())
+                .registrationStartTime(w.getRegistrationStartTime())
+                .registrationEndTime(w.getRegistrationEndTime())
                 .build();
     }
 
@@ -202,6 +204,13 @@ public class WorkshopService {
      */
     private int getAccurateRemainingSlots(Workshop workshop) {
         int redisSlots = seatLockingService.getRemainingSlots(String.valueOf(workshop.getId()));
-        return redisSlots >= 0 ? redisSlots : workshop.getRemainingSlots();
+        int dbSlots = workshop.getRemainingSlots();
+        
+        // If Redis returns 0 but DB has available slots, Redis was likely cleared/expired
+        // Use DB value to restore correct availability after Redis flush
+        if (redisSlots == 0 && dbSlots > 0) {
+            return dbSlots;
+        }
+        return redisSlots >= 0 ? redisSlots : dbSlots;
     }
 }

@@ -33,4 +33,10 @@ public class WorkshopResponse {
 
     @Schema(description = "Workshop end time")
     private LocalDateTime endTime;
+    
+    @Schema(description = "Registration start time")
+    private LocalDateTime registrationStartTime;
+
+    @Schema(description = "Registration end time")
+    private LocalDateTime registrationEndTime;
 }

@@ -1,5 +1,7 @@
 package com.unihub.backend.service;
 
+import com.unihub.backend.entity.Workshop;
+import com.unihub.backend.repository.WorkshopRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -7,6 +9,7 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 
@@ -21,12 +24,14 @@ public class SeatLockingServiceImpl implements SeatLockingService {
     private static final Duration HOLD_TTL = Duration.ofMinutes(10);
 
     private final StringRedisTemplate redis;
+    private final WorkshopRepository workshopRepository;
     private final DefaultRedisScript<Long> reserveSeatScript;
     private final DefaultRedisScript<Long> releaseSeatScript;
 
     @Override
     public boolean reserveSeat(String workshopId, String userId) {
         String slotsKey = buildSlotsKey(workshopId);
+        ensureSlotsInitialized(workshopId, slotsKey);
         Long result = redis.execute(reserveSeatScript, Collections.singletonList(slotsKey));
 
         if (result != null && result == 1L) {
@@ -126,5 +131,23 @@ public class SeatLockingServiceImpl implements SeatLockingService {
 
     private String buildHoldKey(String workshopId, String userId) {
         return HOLD_KEY_PREFIX + workshopId + ":" + userId;
+    }
+
+    private void ensureSlotsInitialized(String workshopId, String slotsKey) {
+        Boolean exists = redis.hasKey(slotsKey);
+        if (Boolean.TRUE.equals(exists)) {
+            return;
+        }
+
+        workshopRepository.findById(Long.valueOf(workshopId)).ifPresent(workshop -> {
+            int remainingSlots = workshop.getRemainingSlots() != null
+                    ? workshop.getRemainingSlots()
+                    : workshop.getTotalSlots();
+                String maxKey = slotsKey + ":max";
+                redis.opsForValue().set(slotsKey, String.valueOf(remainingSlots));
+                redis.opsForValue().set(maxKey, String.valueOf(remainingSlots));
+                log.warn("Recovered missing Redis slots for workshop={} from DB: remaining={}",
+                        workshopId, remainingSlots);
+        });
     }
 }
