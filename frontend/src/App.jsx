@@ -10,6 +10,8 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import HomeStudent from './pages/HomeStudent';
+import ProfilePage from './pages/ProfilePage';
+import WorkshopListPage from './pages/WorkshopListPage';
 import Dashboard from './pages/Dashboard';
 import NotFoundPage from './pages/NotFoundPage';
 
@@ -34,6 +36,8 @@ const App = () => {
                             {/* Student-only routes */}
                             <Route element={<ProtectedRoute allowedRoles={['STUDENT', 'ADMIN']} />}>
                                 <Route path="/" element={<HomeStudent />} />
+                                <Route path="/profile" element={<ProfilePage />} />
+                                <Route path="/workshops" element={<WorkshopListPage />} />
                             </Route>
 
                             {/* Admin-only routes */}

@@ -23,7 +23,7 @@ const LoginPage = () => {
 
         try {
             const response = await authService.webLogin({ email, password });
-            login({
+            await login({
                 accessToken: response.accessToken,
                 refreshToken: response.refreshToken,
                 userId: response.userId,

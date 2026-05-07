@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import workshopService from '../services/workshopService';
+import workshopRegistrationService from '../services/workshopRegistrationService';
+import PaymentModal from '../components/workshops/PaymentModal';
+import RegistrationSuccessModal from '../components/workshops/RegistrationSuccessModal';
 
 const formatDateTime = (dt) => {
     if (!dt) return '—';
@@ -18,49 +21,152 @@ const WorkshopListPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [selectedWorkshop, setSelectedWorkshop] = useState(null);
+    const [isRegistering, setIsRegistering] = useState(false);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [registrationData, setRegistrationData] = useState(null);
+    const [registrationError, setRegistrationError] = useState('');
+
+    const fetchWorkshops = async () => {
+        const data = await workshopService.getAll();
+        setWorkshops(data);
+    };
+
+    const handleRegister = async () => {
+        if (!selectedWorkshop) return;
+        setIsRegistering(true);
+        setRegistrationError('');
+
+        try {
+            const response = await workshopRegistrationService.register(selectedWorkshop.id);
+            const dataWithTitle = {
+                ...response,
+                title: selectedWorkshop.title,
+                workshopId: selectedWorkshop.id,
+            };
+            setRegistrationData(dataWithTitle);
+            await fetchWorkshops();
+
+            if (response.paidFlow) {
+                // Show payment modal for paid workshops
+                setShowPaymentModal(true);
+            } else {
+                // Show success modal for free workshops
+                setShowSuccessModal(true);
+            }
+            setSelectedWorkshop(null);
+        } catch (error) {
+            const status = error.response?.status;
+            if (status === 409) {
+                setRegistrationError('You have already registered for this workshop!');
+            } else if (status === 429) {
+                setRegistrationError('Too many requests. Please try again later.');
+            } else if (status === 402) {
+                setRegistrationError('No seats left. Please choose another workshop.');
+            } else {
+                setRegistrationError(error.response?.data?.message || error.message || 'Registration failed');
+            }
+        } finally {
+            setIsRegistering(false);
+        }
+    };
+
+    const handlePaymentSuccess = async () => {
+        if (!registrationData) return;
+        setIsRegistering(true);
+        setRegistrationError('');
+
+        try {
+            // Generate unique Idempotency-Key
+            const idempotencyKey = registrationData.idempotencyKey || crypto.randomUUID();
+            const paymentResponse = await workshopRegistrationService.processPayment(
+                registrationData.workshopId,
+                idempotencyKey
+            );
+
+            if (paymentResponse.success) {
+                if (paymentResponse.qrCode) {
+                    setRegistrationData((current) => ({
+                        ...current,
+                        qrCode: paymentResponse.qrCode,
+                    }));
+                }
+                setShowPaymentModal(false);
+                setShowSuccessModal(true);
+            } else {
+                setRegistrationError(`Thanh toán thất bại: ${paymentResponse.message}`);
+                await fetchWorkshops();
+            }
+        } catch (error) {
+            const status = error.response?.status;
+            if (status === 409) {
+                setRegistrationError('Payment is already being processed. Please wait or try again.');
+            } else if (status === 429) {
+                setRegistrationError('Too many payment requests. Please try again later.');
+            } else {
+                setRegistrationError(error.response?.data?.message || error.message || 'Payment failed');
+            }
+            await fetchWorkshops();
+        } finally {
+            setIsRegistering(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchWorkshops = async () => {
+        const loadWorkshops = async () => {
             try {
-                const data = await workshopService.getAll();
-                setWorkshops(data);
+                await fetchWorkshops();
             } catch (err) {
                 setError(err.message);
             } finally {
                 setLoading(false);
             }
         };
-        fetchWorkshops();
+        loadWorkshops();
     }, []);
+
+    const isRegistrationOpen = (w) => {
+        try {
+            const now = new Date();
+            // Prefer explicit registration window if provided, otherwise fall back to start/end
+            const start = w.registrationStartTime ? new Date(w.registrationStartTime) : new Date(w.startTime);
+            const end = w.registrationEndTime ? new Date(w.registrationEndTime) : new Date(w.endTime);
+            return now >= start && now <= end;
+        } catch (e) {
+            return true; // if parsing fails, default to allow registration and let backend enforce
+        }
+    };
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center py-20">
+            <div className="flex min-h-screen items-center justify-center bg-gray-50">
                 <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent" />
             </div>
         );
     }
 
     return (
-        <div className="mx-auto max-w-5xl px-4 py-8">
-            {/* Hero Section */}
-            <div className="mb-8 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-8 py-10 text-white shadow-lg">
-                <h1 className="text-3xl font-bold">Tuần Lễ Kỹ Năng & Nghề Nghiệp</h1>
-                <p className="mt-2 text-indigo-100">
-                    Khám phá và đăng ký các workshop hấp dẫn tại UniHub.
-                </p>
+        <div className="min-h-screen bg-gray-50 p-6 mx-auto max-w-7xl">
+            {/* Header */}
+            <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Workshop Catalog</h1>
+                    <p className="mt-1 text-sm text-gray-500">
+                        Discover and register for exciting workshops at UniHub.
+                    </p>
+                </div>
             </div>
 
             {error && (
-                <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
+                <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div>
             )}
 
             {workshops.length === 0 ? (
-                <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
-                    <p className="text-gray-400">Chưa có workshop nào được mở. Hãy quay lại sau!</p>
+                <div className="rounded-2xl bg-white p-12 text-center shadow-sm border border-gray-100">
+                    <p className="text-gray-400">No workshops are available yet. Please check back later.</p>
                 </div>
             ) : (
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {workshops.map((w) => (
                         <div
                             key={w.id}
@@ -91,8 +197,11 @@ const WorkshopListPage = () => {
                                         ? 'bg-red-100 text-red-600'
                                         : 'bg-indigo-100 text-indigo-600'
                                 }`}>
-                                    {w.remainingSlots === 0 ? 'Hết chỗ' : `Còn ${w.remainingSlots}/${w.totalSlots} chỗ`}
+                                    {w.remainingSlots === 0 ? 'Full' : `${w.remainingSlots} slots left`}
                                 </span>
+                                {!isRegistrationOpen(w) && (
+                                    <span className="ml-2 rounded-full px-2 py-0.5 bg-gray-100 text-gray-600 font-semibold">Registration closed</span>
+                                )}
                             </div>
                         </div>
                     ))}
@@ -101,7 +210,7 @@ const WorkshopListPage = () => {
 
             {/* Workshop Detail Modal */}
             {selectedWorkshop && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setSelectedWorkshop(null)}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelectedWorkshop(null)}>
                     <div
                         className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto"
                         onClick={(e) => e.stopPropagation()}
@@ -110,15 +219,15 @@ const WorkshopListPage = () => {
 
                         <div className="mt-4 space-y-3">
                             <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-500 w-24">Thời gian:</span>
+                                <span className="text-sm font-medium text-gray-500 w-24">Time:</span>
                                 <span className="text-sm text-gray-700">{formatDateTime(selectedWorkshop.startTime)}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-500 w-24">Kết thúc:</span>
+                                <span className="text-sm font-medium text-gray-500 w-24">Ends:</span>
                                 <span className="text-sm text-gray-700">{formatDateTime(selectedWorkshop.endTime)}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-500 w-24">Giá vé:</span>
+                                <span className="text-sm font-medium text-gray-500 w-24">Price:</span>
                                 <span className={`text-sm font-semibold ${
                                     Number(selectedWorkshop.price) === 0 ? 'text-emerald-600' : 'text-amber-600'
                                 }`}>
@@ -126,36 +235,79 @@ const WorkshopListPage = () => {
                                 </span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-500 w-24">Chỗ ngồi:</span>
+                                <span className="text-sm font-medium text-gray-500 w-24">Seats:</span>
                                 <span className="text-sm text-gray-700">
-                                    {selectedWorkshop.remainingSlots}/{selectedWorkshop.totalSlots} còn trống
+                                    {selectedWorkshop.remainingSlots} slots left
                                 </span>
                             </div>
                         </div>
 
                         {selectedWorkshop.description && (
                             <div className="mt-4">
-                                <h4 className="text-sm font-medium text-gray-500 mb-1">Mô tả:</h4>
+                                <h4 className="text-sm font-medium text-gray-500 mb-1">Description:</h4>
                                 <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedWorkshop.description}</p>
                             </div>
                         )}
 
-                        <div className="mt-6 flex justify-end gap-3">
+                        {registrationError && (
+                            <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
+                                {registrationError}
+                            </div>
+                        )}
+
+                            <div className="mt-6 flex justify-end gap-3">
                             <button
                                 onClick={() => setSelectedWorkshop(null)}
-                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                                disabled={isRegistering}
+                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
                             >
-                                Đóng
+                                Close
                             </button>
                             <button
-                                disabled={selectedWorkshop.remainingSlots === 0}
+                                onClick={handleRegister}
+                                disabled={selectedWorkshop.remainingSlots === 0 || isRegistering || !isRegistrationOpen(selectedWorkshop)}
                                 className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                             >
-                                {selectedWorkshop.remainingSlots === 0 ? 'Hết chỗ' : 'Đăng ký'}
+                                {isRegistering ? 'Processing...' : !isRegistrationOpen(selectedWorkshop) ? 'Registration closed' : selectedWorkshop.remainingSlots === 0 ? 'Full' : 'Register'}
                             </button>
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Payment Modal */}
+            {registrationData && (
+                <PaymentModal
+                    isOpen={showPaymentModal}
+                    workshop={{
+                        title: registrationData.title || 'Workshop',
+                        price: registrationData.amount,
+                    }}
+                    idempotencyKey={registrationData.idempotencyKey}
+                    onClose={() => {
+                        setShowPaymentModal(false);
+                        setRegistrationData(null);
+                        setRegistrationError('');
+                    }}
+                    onPaymentSuccess={handlePaymentSuccess}
+                    onPaymentError={(error) => {
+                        setRegistrationError(error.message || 'Payment error');
+                    }}
+                />
+            )}
+
+            {/* Registration Success Modal */}
+            {registrationData && (
+                <RegistrationSuccessModal
+                    isOpen={showSuccessModal}
+                    qrCode={registrationData.qrCode}
+                    workshopTitle={registrationData.title || 'Workshop'}
+                    onClose={() => {
+                        setShowSuccessModal(false);
+                        setRegistrationData(null);
+                        setRegistrationError('');
+                    }}
+                />
             )}
         </div>
     );
