@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/layouts/Layout';
 import ProtectedRoute from './routes/ProtectedRoute';
 import GuestRoute from './routes/GuestRoute';
@@ -14,6 +14,13 @@ import ProfilePage from './pages/ProfilePage';
 import WorkshopListPage from './pages/WorkshopListPage';
 import Dashboard from './pages/Dashboard';
 import NotFoundPage from './pages/NotFoundPage';
+
+// Auto-redirect ADMIN to /admin when visiting /
+const HomeRedirect = () => {
+    const { user } = useAuth();
+    if (user?.role === 'ADMIN') return <Navigate to="/admin" replace />;
+    return <HomeStudent />;
+};
 
 const App = () => {
     return (
@@ -35,7 +42,7 @@ const App = () => {
 
                             {/* Student-only routes */}
                             <Route element={<ProtectedRoute allowedRoles={['STUDENT', 'ADMIN']} />}>
-                                <Route path="/" element={<HomeStudent />} />
+                                <Route path="/" element={<HomeRedirect />} />
                                 <Route path="/profile" element={<ProfilePage />} />
                                 <Route path="/workshops" element={<WorkshopListPage />} />
                             </Route>

@@ -15,6 +15,20 @@ const formatPrice = (price) => {
     return Number(price).toLocaleString('vi-VN') + 'đ';
 };
 
+const statusBadge = (status) => {
+    const map = {
+        DRAFT: 'bg-gray-100 text-gray-700',
+        PUBLISHED: 'bg-green-100 text-green-700',
+        CANCELLED: 'bg-red-100 text-red-700',
+        COMPLETED: 'bg-blue-100 text-blue-700',
+    };
+    return (
+        <span className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${map[status] || 'bg-gray-100 text-gray-600'}`}>
+            {status || '—'}
+        </span>
+    );
+};
+
 const StatCard = ({ label, value, color }) => (
     <div className={`rounded-2xl p-6 shadow-sm text-white ${color}`}>
         <p className="text-sm font-medium opacity-80">{label}</p>
@@ -38,6 +52,7 @@ const Dashboard = () => {
     const [editingWorkshop, setEditingWorkshop] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState(null);
+    const [cancelConfirm, setCancelConfirm] = useState(null);
     const [statsData, setStatsData] = useState(null);
 
     // AI Summary State
@@ -46,6 +61,14 @@ const Dashboard = () => {
     const [aiFile, setAiFile] = useState(null);
     const [aiUploading, setAiUploading] = useState(false);
     const [aiSuccessMessage, setAiSuccessMessage] = useState('');
+    const [openActionId, setOpenActionId] = useState(null);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = () => setOpenActionId(null);
+        window.addEventListener('click', handleClickOutside);
+        return () => window.removeEventListener('click', handleClickOutside);
+    }, []);
 
     const aiPollRef = useRef({ cancelled: false, timeoutId: null });
 
@@ -111,6 +134,26 @@ const Dashboard = () => {
         } catch (err) {
             setError(err.message);
             setDeleteConfirm(null);
+        }
+    };
+
+    const handleCancel = async (id) => {
+        try {
+            await adminWorkshopService.cancel(id);
+            setCancelConfirm(null);
+            fetchWorkshops();
+        } catch (err) {
+            setError(err.message);
+            setCancelConfirm(null);
+        }
+    };
+
+    const handlePublish = async (id) => {
+        try {
+            await adminWorkshopService.publish(id);
+            fetchWorkshops();
+        } catch (err) {
+            setError(err.message);
         }
     };
 
@@ -253,73 +296,94 @@ const Dashboard = () => {
                     <p className="text-gray-400">No workshops yet. Click "Create Workshop" to get started.</p>
                 </div>
             ) : (
-                <div className="overflow-hidden rounded-2xl bg-white shadow-sm">
+                <div className="overflow-hidden rounded-2xl bg-white shadow-sm border border-gray-100">
                     <table className="w-full text-sm text-left">
                         <thead>
-                            <tr className="border-b bg-gray-50 text-xs uppercase tracking-wider text-gray-500">
-                                <th className="px-4 py-3">Title</th>
-                                <th className="px-4 py-3">Time</th>
-                                <th className="px-4 py-3 text-center">Slots</th>
-                                <th className="px-4 py-3 text-right">Price</th>
-                                <th className="px-4 py-3 text-right">Actions</th>
+                            <tr className="border-b bg-gray-50/50 text-[11px] uppercase tracking-wider text-gray-400">
+                                <th className="px-6 py-4 font-bold text-left">Workshop</th>
+                                <th className="px-6 py-4 font-bold text-center">Status</th>
+                                <th className="px-6 py-4 font-bold text-left">Event Time</th>
+                                <th className="px-6 py-4 font-bold text-left">Registration</th>
+                                <th className="px-6 py-4 font-bold text-center">Slots</th>
+                                <th className="px-6 py-4 font-bold text-right">Price</th>
+                                <th className="px-6 py-4 font-bold text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {workshops.map((w) => (
-                                <tr key={w.id} className="border-b last:border-0 hover:bg-gray-50 transition">
-                                    <td className="px-4 py-3">
-                                        <div className="font-medium text-gray-900">{w.title}</div>
+                                <tr key={w.id} className="border-b last:border-0 hover:bg-gray-50/30 transition">
+                                    <td className="px-6 py-3 text-left">
+                                        <div className="font-bold text-gray-900 text-[13px]">{w.title}</div>
+                                        <div className="mt-1 text-[11px] text-gray-500">
+                                            {w.speaker || '—'} · {w.roomName || '—'}
+                                        </div>
                                         {w.description && (
-                                            <div className="mt-0.5 text-xs text-gray-500 line-clamp-2 italic" title={w.description}>
+                                            <div className="mt-1 text-[11px] text-gray-400 line-clamp-1 max-w-[500px]" title={w.description}>
                                                 {w.description}
                                             </div>
                                         )}
                                     </td>
-                                    <td className="px-4 py-3 text-gray-600">
+                                    <td className="px-6 py-3 text-center align-middle">{statusBadge(w.status)}</td>
+                                    <td className="px-6 py-3 text-left align-middle text-[11px] text-gray-600">
                                         <div>{formatDateTime(w.startTime)}</div>
-                                        <div className="text-xs text-gray-400">→ {formatDateTime(w.endTime)}</div>
+                                        <div className="text-gray-400">→ {formatDateTime(w.endTime)}</div>
                                     </td>
-                                    <td className="px-4 py-3 text-center">
-                                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${w.remainingSlots === 0
-                                                ? 'bg-red-100 text-red-700'
-                                                : w.remainingSlots <= w.totalSlots * 0.2
-                                                    ? 'bg-amber-100 text-amber-700'
-                                                    : 'bg-green-100 text-green-700'
+                                    <td className="px-6 py-3 text-left align-middle text-[11px] text-gray-600">
+                                        <div>{formatDateTime(w.registrationStartTime)}</div>
+                                        <div className="text-gray-400">→ {formatDateTime(w.registrationEndTime)}</div>
+                                    </td>
+                                    <td className="px-6 py-3 text-center align-middle">
+                                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${w.remainingSlots === 0
+                                            ? 'bg-red-100 text-red-700'
+                                            : w.remainingSlots <= w.totalSlots * 0.2
+                                                ? 'bg-amber-100 text-amber-700'
+                                                : 'bg-green-100 text-green-700'
                                             }`}>
                                             {w.remainingSlots}/{w.totalSlots}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-3 text-right text-gray-700">{formatPrice(w.price)}</td>
-                                    <td className="px-4 py-3 text-right">
-                                        <div className="flex justify-end gap-1">
+                                    <td className="px-6 py-3 text-right align-middle text-[13px] font-medium text-gray-700">{formatPrice(w.price)}</td>
+                                    <td className="px-6 py-3 text-center align-middle">
+                                        <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
                                             <button
-                                                onClick={() => handleViewStats(w.id)}
-                                                className="rounded-md px-2.5 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition"
-                                                title="View Stats"
+                                                onClick={() => setOpenActionId(openActionId === w.id ? null : w.id)}
+                                                className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${openActionId === w.id ? 'bg-gray-100 text-gray-900 shadow-inner' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}
                                             >
-                                                Stats
+                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                                                </svg>
                                             </button>
-                                            <button
-                                                onClick={() => handleOpenAiUpload(w)}
-                                                className="rounded-md px-2.5 py-1.5 text-xs font-medium text-fuchsia-600 hover:bg-fuchsia-50 transition"
-                                                title="AI Summary"
-                                            >
-                                                AI
-                                            </button>
-                                            <button
-                                                onClick={() => handleEdit(w)}
-                                                className="rounded-md px-2.5 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50 transition"
-                                                title="Edit"
-                                            >
-                                                Edit
-                                            </button>
-                                            <button
-                                                onClick={() => setDeleteConfirm(w.id)}
-                                                className="rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition"
-                                                title="Delete"
-                                            >
-                                                Delete
-                                            </button>
+
+                                            {openActionId === w.id && (
+                                                <div className={`absolute right-0 z-50 w-28 rounded-md border border-gray-200 bg-white py-0.5 shadow-lg ${workshops.indexOf(w) >= workshops.length - 2 && workshops.length > 3 ? 'bottom-full mb-1' : 'mt-1'}`}>
+                                                    <button onClick={() => { handleViewStats(w.id); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-50 transition">
+                                                        View Statistics
+                                                    </button>
+                                                    <button onClick={() => { handleOpenAiUpload(w); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-50 transition">
+                                                        AI Summarize
+                                                    </button>
+                                                    {w.status !== 'CANCELLED' && w.status !== 'COMPLETED' && (
+                                                        <button onClick={() => { handleEdit(w); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-50 transition">
+                                                            Edit Details
+                                                        </button>
+                                                    )}
+                                                    {w.status === 'DRAFT' && (
+                                                        <button onClick={() => { handlePublish(w.id); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] font-semibold text-gray-900 hover:bg-gray-50 transition">
+                                                            Publish Now
+                                                        </button>
+                                                    )}
+                                                    {w.status !== 'CANCELLED' && w.status !== 'COMPLETED' && (
+                                                        <button onClick={() => { setCancelConfirm(w.id); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-red-500 hover:bg-red-50 transition">
+                                                            Cancel Workshop
+                                                        </button>
+                                                    )}
+                                                    {w.status === 'DRAFT' && (
+                                                        <button onClick={() => { setDeleteConfirm(w.id); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-red-600 hover:bg-red-50 transition">
+                                                            Delete
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -344,7 +408,7 @@ const Dashboard = () => {
                     <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
                         <h3 className="text-lg font-bold text-gray-900">Delete Workshop?</h3>
                         <p className="mt-2 text-sm text-gray-500">
-                            This action cannot be undone. If the workshop has successful registrations, deletion will be blocked.
+                            This action cannot be undone. Only DRAFT workshops can be deleted.
                         </p>
                         <div className="mt-5 flex justify-end gap-3">
                             <button
@@ -392,7 +456,7 @@ const Dashboard = () => {
                             <div className="h-2.5 w-full rounded-full bg-gray-200 overflow-hidden">
                                 <div
                                     className={`h-full rounded-full transition-all ${statsData.fillRate >= 90 ? 'bg-red-500' :
-                                            statsData.fillRate >= 60 ? 'bg-amber-500' : 'bg-emerald-500'
+                                        statsData.fillRate >= 60 ? 'bg-amber-500' : 'bg-emerald-500'
                                         }`}
                                     style={{ width: `${Math.min(statsData.fillRate, 100)}%` }}
                                 />
@@ -473,6 +537,32 @@ const Dashboard = () => {
                                     ) : 'Upload & Summarize'}
                                 </button>
                             )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Cancel Confirmation Modal */}
+            {cancelConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                    <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+                        <h3 className="text-lg font-bold text-gray-900">Cancel Workshop?</h3>
+                        <p className="mt-2 text-sm text-gray-500">
+                            This will set the workshop status to CANCELLED and block all new registrations.
+                        </p>
+                        <div className="mt-5 flex justify-end gap-3">
+                            <button
+                                onClick={() => setCancelConfirm(null)}
+                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                            >
+                                No, Keep
+                            </button>
+                            <button
+                                onClick={() => handleCancel(cancelConfirm)}
+                                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 transition"
+                            >
+                                Yes, Cancel Workshop
+                            </button>
                         </div>
                     </div>
                 </div>

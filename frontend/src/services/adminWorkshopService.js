@@ -57,6 +57,20 @@ const adminWorkshopService = {
             },
         });
     },
+
+    /**
+     * Cancel a workshop (Admin only).
+     */
+    cancel(id) {
+        return axiosClient.put(`${adminWorkshopUrl}/${id}/cancel`);
+    },
+
+    /**
+     * Publish a DRAFT workshop (Admin only).
+     */
+    publish(id) {
+        return axiosClient.put(`${adminWorkshopUrl}/${id}/publish`);
+    },
 };
 
 export default adminWorkshopService;
