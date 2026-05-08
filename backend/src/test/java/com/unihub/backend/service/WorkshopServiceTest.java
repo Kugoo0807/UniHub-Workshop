@@ -10,6 +10,10 @@ import com.unihub.backend.exception.ResourceNotFoundException;
 import com.unihub.backend.repository.RegistrationRepository;
 import com.unihub.backend.repository.RoomRepository;
 import com.unihub.backend.repository.WorkshopRepository;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
+import jakarta.validation.ValidatorFactory;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,6 +28,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -162,6 +167,49 @@ class WorkshopServiceTest {
         verify(workshopRepository, never()).save(any(Workshop.class));
     }
 
+    // ──────────── WM-UT-03: Create with total_slots = 0 ────────────
+
+    @Test
+    void createWorkshop_totalSlotsZero_failsBeanValidation() {
+        // WM-UT-03: total_slots = 0 should be rejected by @Positive constraint
+        WorkshopRequest request = new WorkshopRequest(
+                "Workshop Zero Slots", null, 1L, "Speaker A",
+                0, 0L, // total_slots = 0
+                LocalDateTime.of(2026, 5, 10, 8, 0),
+                LocalDateTime.of(2026, 5, 10, 12, 0),
+                LocalDateTime.of(2026, 5, 5, 8, 0),
+                LocalDateTime.of(2026, 5, 10, 7, 30));
+
+        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+        Validator validator = factory.getValidator();
+        Set<ConstraintViolation<WorkshopRequest>> violations = validator.validate(request);
+
+        assertFalse(violations.isEmpty(), "Expected validation error for total_slots = 0");
+        assertTrue(violations.stream()
+                .anyMatch(v -> v.getPropertyPath().toString().equals("totalSlots")),
+                "Expected violation on totalSlots field");
+    }
+
+    @Test
+    void createWorkshop_totalSlotsNegative_failsBeanValidation() {
+        // Supplementary to WM-UT-03: negative total_slots
+        WorkshopRequest request = new WorkshopRequest(
+                "Workshop Negative Slots", null, 1L, "Speaker A",
+                -5, 0L,
+                LocalDateTime.of(2026, 5, 10, 8, 0),
+                LocalDateTime.of(2026, 5, 10, 12, 0),
+                LocalDateTime.of(2026, 5, 5, 8, 0),
+                LocalDateTime.of(2026, 5, 10, 7, 30));
+
+        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+        Validator validator = factory.getValidator();
+        Set<ConstraintViolation<WorkshopRequest>> violations = validator.validate(request);
+
+        assertFalse(violations.isEmpty());
+        assertTrue(violations.stream()
+                .anyMatch(v -> v.getPropertyPath().toString().equals("totalSlots")));
+    }
+
     @Test
     void createWorkshop_endTimeEqualsStartTime_throwsIllegalArgument() {
         LocalDateTime sameTime = LocalDateTime.of(2026, 5, 10, 10, 0);
@@ -262,10 +310,11 @@ class WorkshopServiceTest {
                 () -> workshopService.createWorkshop(request));
     }
 
-    // ──────────── WM-UT-04/G10: Delete — only DRAFT ────────────
+    // ──────────── WM-UT-04/WM-UT-05/G10: Delete workshop ────────────
 
     @Test
     void deleteWorkshop_draftStatus_deletesSuccessfully() {
+        // WM-UT-05: Delete workshop without registrations → DELETE DB, DEL Redis key
         Workshop existing = baseWorkshop(1L);
         existing.setStatus("DRAFT");
         when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
@@ -278,8 +327,39 @@ class WorkshopServiceTest {
 
     @Test
     void deleteWorkshop_publishedStatus_throwsConflict() {
+        // WM-UT-04: Published workshop (may have SUCCESS registrations) → ConflictException
+        // Implementation checks DRAFT status rather than registrations directly,
+        // which is stricter: non-DRAFT workshops cannot be deleted regardless of registrations.
         Workshop existing = baseWorkshop(1L);
         existing.setStatus("PUBLISHED");
+        when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        ConflictException ex = assertThrows(
+                ConflictException.class,
+                () -> workshopService.deleteWorkshop(1L));
+        assertTrue(ex.getMessage().contains("Only DRAFT"));
+        verify(workshopRepository, never()).delete(any(Workshop.class));
+    }
+
+    @Test
+    void deleteWorkshop_completedStatus_throwsConflict() {
+        // WM-UT-04 supplementary: COMPLETED workshop cannot be deleted
+        Workshop existing = baseWorkshop(1L);
+        existing.setStatus("COMPLETED");
+        when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
+
+        ConflictException ex = assertThrows(
+                ConflictException.class,
+                () -> workshopService.deleteWorkshop(1L));
+        assertTrue(ex.getMessage().contains("Only DRAFT"));
+        verify(workshopRepository, never()).delete(any(Workshop.class));
+    }
+
+    @Test
+    void deleteWorkshop_cancelledStatus_throwsConflict() {
+        // WM-UT-04 supplementary: CANCELLED workshop cannot be deleted
+        Workshop existing = baseWorkshop(1L);
+        existing.setStatus("CANCELLED");
         when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
 
         ConflictException ex = assertThrows(
