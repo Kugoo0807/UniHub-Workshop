@@ -15,11 +15,15 @@ const Layout = () => {
 
     const isActive = (path) => location.pathname === path;
 
-    const navLinks = isAuthenticated ? [
-        { path: '/', label: '🏠 Home' },
-        { path: '/workshops', label: '📚 Workshops' },
-        { path: '/profile', label: '👤 Profile' },
-    ] : [];
+    const navLinks = isAuthenticated ? (
+        user?.role === 'ADMIN' 
+            ? [{ path: '/', label: '🏠 Home' }]
+            : [
+                { path: '/', label: '🏠 Home' },
+                { path: '/workshops', label: '📚 Workshops' },
+                { path: '/profile', label: '👤 Profile' },
+            ]
+    ) : [];
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -37,11 +41,10 @@ const Layout = () => {
                                     <Link
                                         key={link.path}
                                         to={link.path}
-                                        className={`text-sm font-medium px-3 py-2 rounded-md transition-colors ${
-                                            isActive(link.path)
+                                        className={`text-sm font-medium px-3 py-2 rounded-md transition-colors ${isActive(link.path)
                                                 ? 'bg-indigo-100 text-indigo-700'
                                                 : 'text-gray-600 hover:text-indigo-600'
-                                        }`}
+                                            }`}
                                     >
                                         {link.label}
                                     </Link>
@@ -104,11 +107,10 @@ const Layout = () => {
                                             key={link.path}
                                             to={link.path}
                                             onClick={() => setIsMobileMenuOpen(false)}
-                                            className={`block px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                                                isActive(link.path)
+                                            className={`block px-3 py-2 rounded-md text-sm font-medium transition-colors ${isActive(link.path)
                                                     ? 'bg-indigo-100 text-indigo-700'
                                                     : 'text-gray-600 hover:bg-gray-100'
-                                            }`}
+                                                }`}
                                         >
                                             {link.label}
                                         </Link>
