@@ -39,7 +39,7 @@ CREATE TABLE workshops (
 - `id` kiểu **`BIGSERIAL`** → Java entity dùng `Long`.
 - `price` kiểu **`BIGINT DEFAULT 0`** → dùng `Long` và default `0L` trong Entity.
 - `description` **nullable** → Admin có thể tạo workshop trước rồi AI điền sau (xem spec `ai-summary.md`).
-- Schema **không có** constraint `CHECK` trên DB → validation xử lý ở **Service / Bean Validation**.
+- Schema đã có constraint `CHECK` trên DB (xem `V5__add_contraints.sql`): `start_time < end_time`, `registration_start_time < registration_end_time`, `remaining_slots >= 0`, `remaining_slots <= total_slots`. Validation ở Service vẫn cần để trả friendly error message trước khi DB reject.
 
 ---
 
@@ -123,7 +123,7 @@ CREATE TABLE workshops (
 2. Nếu `id` không tồn tại → trả `404`.
 3. Service tính toán:
    - `total_slots`: từ DB.
-   - `remaining_slots`: từ Redis key `workshop:slots:{id}` (realtime).
+   - `remaining_slots`: từ Redis key `workshop:{id}:slots` (realtime).
    - `registered_count`: `COUNT` từ bảng `registrations` có `workshop_id` này và `status = 'SUCCESS'`.
    - `fill_rate`: `(total_slots - remaining_slots) / total_slots * 100` (%).
 4. Trả về `200 OK`.
@@ -221,7 +221,7 @@ CREATE TABLE workshops (
 ## Ràng buộc
 
 - **Security:** Mọi endpoints (kể cả GET) đều yêu cầu `@PreAuthorize("hasRole('ADMIN')")` tại Controller. Tính năng này dành riêng cho Admin.
-- **Redis:** Key pattern `workshop:{id}:slots`. Không đặt TTL (tồn tại vĩnh viễn đến khi xóa thủ công). Feature **Registration** (downstream) sẽ dùng Redis Lua Script để `DECR` atomic trên key này.
+- **Redis:** Key pattern `workshop:{id}:slots`. TTL = `registration_end_time + 24h buffer` (tránh key zombie). Feature **Registration** (downstream) sẽ dùng Redis Lua Script để `DECR` atomic trên key này.
 - **Validation:** `end_time > start_time` cần xử lý ở **Service layer** vì Bean Validation không hỗ trợ cross-field validation trên record.
 - **Room capacity:** `total_slots <= rooms.capacity` bắt buộc ở Service layer.
 - **Status:** Chỉ cho phép `DRAFT`, `PUBLISHED`, `CANCELLED`, `COMPLETED`.
@@ -363,4 +363,4 @@ public record WorkshopRequest(
 | Redis running | **Blocking** | Cần để set/get slots |
 | Feature: Auth | **Blocking** | Cần JWT + RBAC cho write endpoints |
 | Feature: AI Summary | **Non-blocking** | Xem spec `ai-summary.md` — cập nhật `description` bất đồng bộ |
-| Feature: Registration | Downstream | Đọc `workshop:slots:{id}` do feature này init |
+| Feature: Registration | Downstream | Đọc `workshop:{id}:slots` do feature này init |
