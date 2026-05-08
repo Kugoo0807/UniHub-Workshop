@@ -28,6 +28,14 @@ const workshopRegistrationService = {
     );
     return response;
   },
+
+  /**
+   * Cancel a pending registration
+   */
+  cancelRegistration: async (workshopId) => {
+    const response = await axiosClient.post(`${WORKSHOP_API}/${workshopId}/cancel-registration`);
+    return response;
+  },
 };
 
 export default workshopRegistrationService;

@@ -284,7 +284,15 @@ const WorkshopListPage = () => {
                         price: registrationData.amount,
                     }}
                     idempotencyKey={registrationData.idempotencyKey}
-                    onClose={() => {
+                    onClose={async () => {
+                        if (registrationData?.workshopId) {
+                            try {
+                                await workshopRegistrationService.cancelRegistration(registrationData.workshopId);
+                                await fetchWorkshops();
+                            } catch (e) {
+                                console.error('Failed to cancel registration:', e);
+                            }
+                        }
                         setShowPaymentModal(false);
                         setRegistrationData(null);
                         setRegistrationError('');
