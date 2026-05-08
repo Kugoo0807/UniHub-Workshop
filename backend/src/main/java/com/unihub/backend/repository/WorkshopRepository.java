@@ -20,6 +20,9 @@ public interface WorkshopRepository extends JpaRepository<Workshop, Long> {
     @Query("SELECT w FROM Workshop w JOIN FETCH w.room ORDER BY w.id ASC")
     List<Workshop> findAllWithRoom();
 
+    @Query("SELECT w FROM Workshop w JOIN FETCH w.room WHERE w.status = 'PUBLISHED' ORDER BY w.id ASC")
+    List<Workshop> findAllPublishedWithRoom();
+
     /**
      * Fetch a single workshop with its Room eagerly loaded.
      * Prevents an extra query when accessing room fields in toResponse().

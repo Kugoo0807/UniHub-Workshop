@@ -42,8 +42,23 @@ public class WorkshopService {
                 .toList();
     }
 
+    public List<WorkshopResponse> getPublishedWorkshops() {
+        return workshopRepository.findAllPublishedWithRoom()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
     public WorkshopResponse getWorkshopById(Long id) {
         Workshop workshop = findWorkshopWithRoomOrThrow(id);
+        return toResponse(workshop);
+    }
+
+    public WorkshopResponse getPublishedWorkshopById(Long id) {
+        Workshop workshop = findWorkshopWithRoomOrThrow(id);
+        if (!"PUBLISHED".equals(workshop.getStatus())) {
+            throw new ResourceNotFoundException("Workshop not found or is not currently available");
+        }
         return toResponse(workshop);
     }
 

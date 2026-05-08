@@ -51,6 +51,11 @@ public class RegistrationService {
 
         log.info("🔍 Workshop {} status: {} | now: {}", workshopId, w.getStatus(), LocalDateTime.now());
 
+        if ("CANCELLED".equals(w.getStatus())) {
+            log.warn("❌ Workshop {} has been cancelled.", workshopId);
+            throw new ConflictException("Workshop has been cancelled and is no longer accepting registrations");
+        }
+
         if (!"PUBLISHED".equals(w.getStatus())) {
             log.warn("❌ Workshop {} not published. Status: {}", workshopId, w.getStatus());
             throw new ConflictException("Workshop is not published");
@@ -145,6 +150,28 @@ public class RegistrationService {
             }
 
             Payment p = pOpt.get();
+            Workshop w = p.getRegistration().getWorkshop();
+
+            if ("CANCELLED".equals(w.getStatus())) {
+                log.warn("❌ Payment blocked: Workshop {} has been cancelled.", workshopId);
+                p.setStatus("FAILED");
+                paymentRepository.save(p);
+                
+                Registration reg = p.getRegistration();
+                reg.setStatus("FAILED");
+                registrationRepository.save(reg);
+                
+                seatLockingService.releaseSeat(String.valueOf(workshopId), String.valueOf(userId));
+                incrementRemainingSlots(w);
+                workshopRepository.save(w);
+                
+                idempotencyService.storeResult(idempotencyKey,
+                        IdempotencyResult.builder().status("FAILED").message("Workshop was cancelled").build(),
+                        IDEMPOTENCY_TTL);
+                
+                throw new ConflictException("Workshop has been cancelled. Payment cannot be processed.");
+            }
+
             var result = paymentGatewayClient.charge(p.getAmount());
 
             if (result.isSuccess()) {

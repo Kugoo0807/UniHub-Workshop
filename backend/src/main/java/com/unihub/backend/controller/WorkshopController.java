@@ -28,12 +28,12 @@ public class WorkshopController {
 
     @GetMapping
     public ResponseEntity<List<WorkshopResponse>> getAllWorkshops() {
-        return ResponseEntity.ok(workshopService.getAllWorkshops());
+        return ResponseEntity.ok(workshopService.getPublishedWorkshops());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<WorkshopResponse> getWorkshopById(@PathVariable Long id) {
-        return ResponseEntity.ok(workshopService.getWorkshopById(id));
+        return ResponseEntity.ok(workshopService.getPublishedWorkshopById(id));
     }
 
     @GetMapping("/my-workshops")
