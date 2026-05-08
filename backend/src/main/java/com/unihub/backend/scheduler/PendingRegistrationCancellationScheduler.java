@@ -4,6 +4,7 @@ import com.unihub.backend.entity.Registration;
 import com.unihub.backend.entity.Workshop;
 import com.unihub.backend.repository.RegistrationRepository;
 import com.unihub.backend.repository.WorkshopRepository;
+import com.unihub.backend.repository.PaymentRepository;
 import com.unihub.backend.service.SeatLockingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +30,7 @@ public class PendingRegistrationCancellationScheduler {
     private final RegistrationRepository registrationRepository;
     private final SeatLockingService seatLockingService;
     private final WorkshopRepository workshopRepository;
+    private final PaymentRepository paymentRepository;
 
     // Run every minute to keep timely cleanup (adjustable)
     @Scheduled(fixedRate = 60 * 1000)
@@ -47,6 +49,13 @@ public class PendingRegistrationCancellationScheduler {
 
                 r.setStatus("CANCELLED");
                 registrationRepository.save(r);
+
+                paymentRepository.findByRegistrationId(r.getId()).ifPresent(p -> {
+                    if ("PENDING".equals(p.getStatus())) {
+                        p.setStatus("CANCELLED");
+                        paymentRepository.save(p);
+                    }
+                });
 
                 // Release seat in infra and increment remainingSlots in DB
                 seatLockingService.releaseSeat(String.valueOf(workshopId), String.valueOf(userId));

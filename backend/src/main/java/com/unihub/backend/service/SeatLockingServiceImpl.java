@@ -73,7 +73,7 @@ public class SeatLockingServiceImpl implements SeatLockingService {
         String slotsKey = buildSlotsKey(workshopId);
         String value = redis.opsForValue().get(slotsKey);
         if (value == null) {
-            return -1;  // Signal: key doesn't exist → caller should fallback to DB
+            return -1; // Signal: key doesn't exist → caller should fallback to DB
         }
         try {
             return Integer.parseInt(value);
@@ -143,11 +143,11 @@ public class SeatLockingServiceImpl implements SeatLockingService {
             int remainingSlots = workshop.getRemainingSlots() != null
                     ? workshop.getRemainingSlots()
                     : workshop.getTotalSlots();
-                String maxKey = slotsKey + ":max";
-                redis.opsForValue().set(slotsKey, String.valueOf(remainingSlots));
-                redis.opsForValue().set(maxKey, String.valueOf(remainingSlots));
-                log.warn("Recovered missing Redis slots for workshop={} from DB: remaining={}",
-                        workshopId, remainingSlots);
+            String maxKey = slotsKey + ":max";
+            redis.opsForValue().set(slotsKey, String.valueOf(remainingSlots));
+            redis.opsForValue().set(maxKey, String.valueOf(remainingSlots));
+            log.warn("Recovered missing Redis slots for workshop={} from DB: remaining={}",
+                    workshopId, remainingSlots);
         });
     }
 }

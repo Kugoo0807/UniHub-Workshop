@@ -80,4 +80,18 @@ public class WorkshopController {
         PaymentResultResponse res = registrationService.processPayment(id, userId, idempotencyKey);
         return ResponseEntity.ok(res);
     }
+
+    @PostMapping("/{id}/cancel-registration")
+    public ResponseEntity<Void> cancelRegistration(
+            @PathVariable Long id,
+            Authentication authentication) {
+        
+        if (authentication == null || !(authentication.getPrincipal() instanceof Number)) {
+            throw new com.unihub.backend.exception.UnauthorizedException("Authentication required");
+        }
+        Long userId = ((Number) authentication.getPrincipal()).longValue();
+        
+        registrationService.cancelRegistration(id, userId);
+        return ResponseEntity.noContent().build();
+    }
 }
