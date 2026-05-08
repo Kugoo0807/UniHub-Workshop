@@ -3,14 +3,15 @@ package com.unihub.backend.service;
 import com.unihub.backend.dto.WorkshopRequest;
 import com.unihub.backend.dto.WorkshopResponse;
 import com.unihub.backend.dto.WorkshopStatsResponse;
+import com.unihub.backend.entity.Room;
 import com.unihub.backend.entity.Workshop;
 import com.unihub.backend.exception.ConflictException;
 import com.unihub.backend.exception.ResourceNotFoundException;
 import com.unihub.backend.repository.RegistrationRepository;
+import com.unihub.backend.repository.RoomRepository;
 import com.unihub.backend.repository.WorkshopRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -28,40 +29,51 @@ import java.util.List;
 public class WorkshopService {
 
     private final WorkshopRepository workshopRepository;
+    private final RoomRepository roomRepository;
     private final RegistrationRepository registrationRepository;
     private final SeatLockingService seatLockingService;
 
     // ────────────── Admin ──────────────
 
     public List<WorkshopResponse> getAllWorkshops() {
-        return workshopRepository.findAll(Sort.by(Sort.Direction.ASC, "id"))
+        return workshopRepository.findAllWithRoom()
                 .stream()
                 .map(this::toResponse)
                 .toList();
     }
 
     public WorkshopResponse getWorkshopById(Long id) {
-        Workshop workshop = findWorkshopOrThrow(id);
+        Workshop workshop = findWorkshopWithRoomOrThrow(id);
         return toResponse(workshop);
     }
 
     @Transactional
     public WorkshopResponse createWorkshop(WorkshopRequest request) {
-        validateTimeRange(request.startTime(), request.endTime());
+        // 1. Lookup Room
+        Room room = findRoomOrThrow(request.roomId());
 
+        // 2. Validate all business rules
+        validateBusinessRules(request, room);
+
+        // 3. Build entity — status defaults to DRAFT via @Builder.Default
         Workshop workshop = Workshop.builder()
                 .title(request.title())
                 .description(request.description())
+                .room(room)
+                .speaker(request.speaker())
+                // status defaults to "DRAFT" via @Builder.Default
                 .totalSlots(request.totalSlots())
                 .remainingSlots(request.totalSlots())
                 .price(request.price() != null ? request.price() : 0L)
                 .startTime(request.startTime())
                 .endTime(request.endTime())
+                .registrationStartTime(request.registrationStartTime())
+                .registrationEndTime(request.registrationEndTime())
                 .build();
 
         Workshop saved = workshopRepository.save(workshop);
 
-        // Initialize Redis slot counter with TTL
+        // 4. Initialize Redis slot counter with TTL
         long ttlSeconds = computeSlotTtl(saved);
         seatLockingService.initSlots(String.valueOf(saved.getId()), saved.getTotalSlots(), ttlSeconds);
         log.info("Initialized Redis slots for workshop {}: total={}, TTL={}s", saved.getId(), saved.getTotalSlots(), ttlSeconds);
@@ -71,12 +83,17 @@ public class WorkshopService {
 
     @Transactional
     public WorkshopResponse updateWorkshop(Long id, WorkshopRequest request) {
-        Workshop workshop = findWorkshopOrThrow(id);
+        Workshop workshop = findWorkshopWithRoomOrThrow(id);
 
-        validateTimeRange(request.startTime(), request.endTime());
+        // 1. Lookup Room (may be the same or different)
+        Room room = findRoomOrThrow(request.roomId());
+
+        // 2. Validate all business rules
+        validateBusinessRules(request, room);
 
         int oldTotalSlots = workshop.getTotalSlots();
 
+        // 3. Check total_slots change restriction
         if (!workshop.getTotalSlots().equals(request.totalSlots())) {
             if (registrationRepository.existsByWorkshopId(id)) {
                 throw new ConflictException(
@@ -85,16 +102,22 @@ public class WorkshopService {
             workshop.setRemainingSlots(request.totalSlots());
         }
 
+        // 4. Update all fields
         workshop.setTitle(request.title());
         workshop.setDescription(request.description());
+        workshop.setRoom(room);
+        workshop.setSpeaker(request.speaker());
         workshop.setTotalSlots(request.totalSlots());
         workshop.setPrice(request.price() != null ? request.price() : 0L);
         workshop.setStartTime(request.startTime());
         workshop.setEndTime(request.endTime());
+        workshop.setRegistrationStartTime(request.registrationStartTime());
+        workshop.setRegistrationEndTime(request.registrationEndTime());
+        // Note: status is NOT updated via this endpoint — managed by lifecycle
 
         Workshop saved = workshopRepository.save(workshop);
 
-        // Sync slot changes to Redis
+        // 5. Sync slot changes to Redis
         if (!Integer.valueOf(oldTotalSlots).equals(request.totalSlots())) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
@@ -113,9 +136,9 @@ public class WorkshopService {
     public void deleteWorkshop(Long id) {
         Workshop workshop = findWorkshopOrThrow(id);
 
-        if (registrationRepository.existsByWorkshopIdAndStatus(id, "SUCCESS")) {
-            throw new ConflictException(
-                    "Cannot delete workshop because it has successful registrations");
+        // G10: Only allow deletion of DRAFT workshops
+        if (!"DRAFT".equals(workshop.getStatus())) {
+            throw new ConflictException("Only DRAFT workshops can be deleted");
         }
 
         workshopRepository.delete(workshop);
@@ -123,6 +146,46 @@ public class WorkshopService {
         // Clean up Redis slot keys
         seatLockingService.removeSlots(String.valueOf(id));
         log.info("Removed Redis slots for deleted workshop {}", id);
+    }
+
+    /**
+     * Publish a workshop (DRAFT → PUBLISHED).
+     * Only DRAFT workshops can be published.
+     */
+    @Transactional
+    public void publishWorkshop(Long id) {
+        Workshop workshop = findWorkshopOrThrow(id);
+
+        if (!"DRAFT".equals(workshop.getStatus())) {
+            throw new IllegalArgumentException(
+                    "Only DRAFT workshops can be published. Current status: " + workshop.getStatus());
+        }
+
+        workshop.setStatus("PUBLISHED");
+        workshopRepository.save(workshop);
+        log.info("Workshop {} has been published.", id);
+    }
+
+    /**
+     * Cancel a workshop (G8/G9).
+     * Sets status to CANCELLED and removes Redis slots to block in-flight registrations.
+     */
+    @Transactional
+    public void cancelWorkshop(Long id) {
+        Workshop workshop = findWorkshopOrThrow(id);
+
+        String currentStatus = workshop.getStatus();
+        if ("COMPLETED".equals(currentStatus) || "CANCELLED".equals(currentStatus)) {
+            throw new IllegalArgumentException(
+                    "Cannot cancel a workshop that is already " + currentStatus);
+        }
+
+        workshop.setStatus("CANCELLED");
+        workshopRepository.save(workshop);
+
+        // Remove Redis key to block any in-flight registrations
+        seatLockingService.removeSlots(String.valueOf(id));
+        log.info("Workshop {} has been cancelled. Redis slots removed.", id);
     }
 
     public WorkshopStatsResponse getWorkshopStats(Long id) {
@@ -158,6 +221,54 @@ public class WorkshopService {
                 .orElseThrow(() -> new ResourceNotFoundException("Workshop not found with id: " + id));
     }
 
+    /**
+     * Find workshop with Room eagerly loaded (JOIN FETCH) to avoid N+1 queries.
+     */
+    private Workshop findWorkshopWithRoomOrThrow(Long id) {
+        return workshopRepository.findByIdWithRoom(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Workshop not found with id: " + id));
+    }
+
+    private Room findRoomOrThrow(Long roomId) {
+        return roomRepository.findById(roomId)
+                .orElseThrow(() -> new ResourceNotFoundException("Room not found with id: " + roomId));
+    }
+
+    /**
+     * Validate all business rules for create/update (G4/G5/G6/G24).
+     */
+    private void validateBusinessRules(WorkshopRequest request, Room room) {
+        // 1. end_time > start_time
+        validateTimeRange(request.startTime(), request.endTime());
+
+        // 2. start_time and end_time must be on the same day (G24 — mandatory per design.md)
+        if (request.startTime() != null && request.endTime() != null
+                && !request.startTime().toLocalDate().equals(request.endTime().toLocalDate())) {
+            throw new IllegalArgumentException("start_time and end_time must be on the same day");
+        }
+
+        // 3. registration_start_time < registration_end_time
+        if (request.registrationEndTime() != null && request.registrationStartTime() != null
+                && !request.registrationEndTime().isAfter(request.registrationStartTime())) {
+            throw new IllegalArgumentException(
+                    "registration_end_time must be after registration_start_time");
+        }
+
+        // 4. registration_start_time < start_time
+        if (request.registrationStartTime() != null && request.startTime() != null
+                && !request.startTime().isAfter(request.registrationStartTime())) {
+            throw new IllegalArgumentException(
+                    "registration_start_time must be before start_time");
+        }
+
+        // 5. total_slots <= room.capacity (G6)
+        if (request.totalSlots() > room.getCapacity()) {
+            throw new ConflictException(
+                    "total_slots (" + request.totalSlots() + ") exceeds room capacity ("
+                            + room.getCapacity() + ")");
+        }
+    }
+
     private void validateTimeRange(LocalDateTime startTime, LocalDateTime endTime) {
         if (endTime != null && startTime != null && !endTime.isAfter(startTime)) {
             throw new IllegalArgumentException("end_time must be after start_time");
@@ -179,8 +290,8 @@ public class WorkshopService {
     }
 
     /**
-     * Convert Workshop entity to WorkshopResponse DTO.
-     * For remaining_slots, prefer Redis value if available, otherwise fall back to DB.
+     * Convert Workshop entity to WorkshopResponse DTO (G11/G23).
+     * Includes room info to avoid N+1 — Room is already fetched via JOIN FETCH.
      */
     private WorkshopResponse toResponse(Workshop w) {
         int remainingSlots = getAccurateRemainingSlots(w);
@@ -189,6 +300,11 @@ public class WorkshopService {
                 .id(w.getId())
                 .title(w.getTitle())
                 .description(w.getDescription())
+                .roomId(w.getRoom().getId())
+                .roomName(w.getRoom().getName())
+                .roomCapacity(w.getRoom().getCapacity())
+                .speaker(w.getSpeaker())
+                .status(w.getStatus())
                 .totalSlots(w.getTotalSlots())
                 .remainingSlots(remainingSlots)
                 .price(w.getPrice())
@@ -201,16 +317,14 @@ public class WorkshopService {
 
     /**
      * Get the most accurate remaining slots for a workshop, preferring Redis value if available.
+     * G19: getRemainingSlots() now returns -1 when key doesn't exist → proper fallback to DB.
      */
     private int getAccurateRemainingSlots(Workshop workshop) {
         int redisSlots = seatLockingService.getRemainingSlots(String.valueOf(workshop.getId()));
-        int dbSlots = workshop.getRemainingSlots();
-        
-        // If Redis returns 0 but DB has available slots, Redis was likely cleared/expired
-        // Use DB value to restore correct availability after Redis flush
-        if (redisSlots == 0 && dbSlots > 0) {
-            return dbSlots;
+        if (redisSlots < 0) {
+            // Redis key doesn't exist — fallback to DB
+            return workshop.getRemainingSlots();
         }
-        return redisSlots >= 0 ? redisSlots : dbSlots;
+        return redisSlots;
     }
 }

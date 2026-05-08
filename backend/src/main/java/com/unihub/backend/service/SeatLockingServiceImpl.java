@@ -73,7 +73,7 @@ public class SeatLockingServiceImpl implements SeatLockingService {
         String slotsKey = buildSlotsKey(workshopId);
         String value = redis.opsForValue().get(slotsKey);
         if (value == null) {
-            return 0;
+            return -1;  // Signal: key doesn't exist → caller should fallback to DB
         }
         try {
             return Integer.parseInt(value);

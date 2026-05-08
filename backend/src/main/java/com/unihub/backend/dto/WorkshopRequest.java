@@ -14,6 +14,15 @@ public record WorkshopRequest(
     @Schema(description = "Workshop description (optional, can be filled by AI)", example = "Mô tả nội dung workshop...")
     String description,
 
+    @NotNull(message = "Room ID is required")
+    @Schema(description = "ID of the room where the workshop will be held", example = "1")
+    Long roomId,
+
+    @NotBlank(message = "Speaker is required")
+    @Size(max = 255, message = "Speaker name must not exceed 255 characters")
+    @Schema(description = "Speaker / presenter name", example = "Nguyen Van A")
+    String speaker,
+
     @NotNull(message = "Total slots is required")
     @Positive(message = "Total slots must be greater than 0")
     @Schema(description = "Total number of seats", example = "60")
@@ -30,5 +39,13 @@ public record WorkshopRequest(
 
     @NotNull(message = "End time is required")
     @Schema(description = "Workshop end time", example = "2026-05-10T12:00:00")
-    LocalDateTime endTime
+    LocalDateTime endTime,
+
+    @NotNull(message = "Registration start time is required")
+    @Schema(description = "Registration start time", example = "2026-05-05T08:00:00")
+    LocalDateTime registrationStartTime,
+
+    @NotNull(message = "Registration end time is required")
+    @Schema(description = "Registration end time", example = "2026-05-10T07:30:00")
+    LocalDateTime registrationEndTime
 ) {}
