@@ -79,7 +79,7 @@ class RegistrationServiceTest {
     void register_freeWorkshop_success() {
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         when(workshopRepository.findById(workshop.getId())).thenReturn(Optional.of(workshop));
-        when(registrationRepository.existsByUserIdAndWorkshopId(user.getId(), workshop.getId())).thenReturn(false);
+        when(registrationRepository.existsByUserIdAndWorkshopIdAndStatusIn(user.getId(), workshop.getId(), java.util.List.of("PENDING", "SUCCESS"))).thenReturn(false);
         when(seatLockingService.reserveSeat(String.valueOf(workshop.getId()), String.valueOf(user.getId())))
                 .thenReturn(true);
 
@@ -98,7 +98,7 @@ class RegistrationServiceTest {
         workshop.setPrice(5000L);
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         when(workshopRepository.findById(workshop.getId())).thenReturn(Optional.of(workshop));
-        when(registrationRepository.existsByUserIdAndWorkshopId(user.getId(), workshop.getId())).thenReturn(false);
+        when(registrationRepository.existsByUserIdAndWorkshopIdAndStatusIn(user.getId(), workshop.getId(), java.util.List.of("PENDING", "SUCCESS"))).thenReturn(false);
         when(seatLockingService.reserveSeat(String.valueOf(workshop.getId()), String.valueOf(user.getId())))
                 .thenReturn(true);
         when(registrationRepository.save(any(Registration.class))).thenAnswer(inv -> {
@@ -120,7 +120,7 @@ class RegistrationServiceTest {
     void register_duplicate_throwsConflict() {
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         when(workshopRepository.findById(workshop.getId())).thenReturn(Optional.of(workshop));
-        when(registrationRepository.existsByUserIdAndWorkshopId(user.getId(), workshop.getId())).thenReturn(true);
+        when(registrationRepository.existsByUserIdAndWorkshopIdAndStatusIn(user.getId(), workshop.getId(), java.util.List.of("PENDING", "SUCCESS"))).thenReturn(true);
 
         assertThrows(ConflictException.class, () -> registrationService.register(workshop.getId(), user.getId()));
     }
@@ -151,7 +151,7 @@ class RegistrationServiceTest {
     void register_noSeats_throwsSeatUnavailable() {
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
         when(workshopRepository.findById(workshop.getId())).thenReturn(Optional.of(workshop));
-        when(registrationRepository.existsByUserIdAndWorkshopId(user.getId(), workshop.getId())).thenReturn(false);
+        when(registrationRepository.existsByUserIdAndWorkshopIdAndStatusIn(user.getId(), workshop.getId(), java.util.List.of("PENDING", "SUCCESS"))).thenReturn(false);
         when(seatLockingService.reserveSeat(String.valueOf(workshop.getId()), String.valueOf(user.getId())))
                 .thenReturn(false);
 
@@ -265,5 +265,23 @@ class RegistrationServiceTest {
         verify(idempotencyService, never()).storeResult(any(), any(), any(Duration.class));
         verify(seatLockingService, never()).releaseSeat(anyString(), anyString());
         verify(paymentRepository, never()).save(argThat(pay -> "FAILED".equals(pay.getStatus()) || "COMPLETED".equals(pay.getStatus())));
+    }
+
+    @Test
+    // Scenario: Explicitly cancel a pending registration
+    void cancelRegistration_success() {
+        Registration reg = Registration.builder().id(90L).status("PENDING").workshop(workshop).build();
+        Payment p = Payment.builder().id(100L).registration(reg).amount(4000L).status("PENDING").build();
+
+        when(registrationRepository.findByUserIdAndWorkshopIdAndStatus(user.getId(), workshop.getId(), "PENDING"))
+                .thenReturn(Optional.of(reg));
+        when(paymentRepository.findByRegistrationId(reg.getId())).thenReturn(Optional.of(p));
+
+        registrationService.cancelRegistration(workshop.getId(), user.getId());
+
+        verify(registrationRepository).save(argThat(r -> "CANCELLED".equals(r.getStatus())));
+        verify(paymentRepository).save(argThat(pay -> "CANCELLED".equals(pay.getStatus())));
+        verify(seatLockingService).releaseSeat(String.valueOf(workshop.getId()), String.valueOf(user.getId()));
+        verify(workshopRepository).save(workshop);
     }
 }

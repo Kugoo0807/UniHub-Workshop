@@ -14,6 +14,9 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
 
     boolean existsByWorkshopId(Long workshopId);
     boolean existsByUserIdAndWorkshopId(Long userId, Long workshopId);
+    java.util.Optional<Registration> findByUserIdAndWorkshopId(Long userId, Long workshopId);
+    boolean existsByUserIdAndWorkshopIdAndStatusIn(Long userId, Long workshopId, List<String> statuses);
+    java.util.Optional<Registration> findByUserIdAndWorkshopIdAndStatus(Long userId, Long workshopId, String status);
 
     boolean existsByWorkshopIdAndStatus(Long workshopId, String status);
 

@@ -71,12 +71,13 @@ public class RegistrationService {
                     "Registration period has ended or not yet started");
         }
 
-        // Prevent duplicate registration
-        boolean alreadyRegistered = registrationRepository.existsByUserIdAndWorkshopId(userId, workshopId);
-        log.info("📋 User {} already registered: {}", userId, alreadyRegistered);
+        // Prevent duplicate registration for active or pending registrations
+        boolean alreadyRegistered = registrationRepository.existsByUserIdAndWorkshopIdAndStatusIn(
+                userId, workshopId, List.of("PENDING", "SUCCESS"));
+        log.info("📋 User {} already has an active registration: {}", userId, alreadyRegistered);
         if (alreadyRegistered) {
-            log.warn("❌ User {} already registered for workshop {}", userId, workshopId);
-            throw new ConflictException("User already registered for this workshop");
+            log.warn("❌ User {} already has an active registration for workshop {}", userId, workshopId);
+            throw new ConflictException("User already has an active registration for this workshop");
         }
 
         boolean reserved = seatLockingService.reserveSeat(String.valueOf(workshopId), String.valueOf(userId));
@@ -247,6 +248,30 @@ public class RegistrationService {
                         .price(registration.getWorkshop().getPrice())
                         .build())
                 .toList();
+    }
+
+    @Transactional
+    public void cancelRegistration(Long workshopId, Long userId) {
+        Registration reg = registrationRepository.findByUserIdAndWorkshopIdAndStatus(userId, workshopId, "PENDING")
+                .orElseThrow(() -> new ResourceNotFoundException("Pending registration not found"));
+
+        reg.setStatus("CANCELLED");
+        registrationRepository.save(reg);
+
+        paymentRepository.findByRegistrationId(reg.getId()).ifPresent(p -> {
+            if ("PENDING".equals(p.getStatus())) {
+                p.setStatus("CANCELLED");
+                paymentRepository.save(p);
+            }
+        });
+
+        seatLockingService.releaseSeat(String.valueOf(workshopId), String.valueOf(userId));
+        
+        Workshop w = reg.getWorkshop();
+        incrementRemainingSlots(w);
+        workshopRepository.save(w);
+
+        log.info("User {} explicitly cancelled pending registration for workshop {}", userId, workshopId);
     }
 
     private String generateQrCode() {
