@@ -195,6 +195,11 @@ public class WorkshopService {
                     "Cannot cancel a workshop that is already " + currentStatus);
         }
 
+        // Prevent cancelling if there are successful registrations
+        if (registrationRepository.existsByWorkshopIdAndStatus(id, "SUCCESS")) {
+            throw new ConflictException("Cannot cancel workshop with successful registrations");
+        }
+
         workshop.setStatus("CANCELLED");
         workshopRepository.save(workshop);
 

@@ -428,6 +428,20 @@ class WorkshopServiceTest {
                 () -> workshopService.cancelWorkshop(1L));
     }
 
+    @Test
+    void cancelWorkshop_withSuccessfulRegistrations_throwsConflict() {
+        Workshop existing = baseWorkshop(1L);
+        existing.setStatus("PUBLISHED");
+        when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(registrationRepository.existsByWorkshopIdAndStatus(1L, "SUCCESS")).thenReturn(true);
+
+        ConflictException ex = assertThrows(
+                ConflictException.class,
+                () -> workshopService.cancelWorkshop(1L));
+        assertTrue(ex.getMessage().contains("Cannot cancel workshop"));
+        verify(workshopRepository, never()).save(any(Workshop.class));
+    }
+
     // ──────────── WM-UT-06: Update total_slots with registrations ────────────
 
     @Test
