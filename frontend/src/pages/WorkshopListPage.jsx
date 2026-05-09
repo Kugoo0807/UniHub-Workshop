@@ -191,7 +191,7 @@ const WorkshopListPage = () => {
                             )}
 
                             <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
-                                <span>🕐 {formatDateTime(w.startTime)}</span>
+                                <span>{formatDateTime(w.startTime)}</span>
                                 <span className={`rounded-full px-2 py-0.5 font-semibold ${
                                     w.remainingSlots === 0
                                         ? 'bg-red-100 text-red-600'

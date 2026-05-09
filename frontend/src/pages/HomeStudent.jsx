@@ -90,7 +90,7 @@ const HomeStudent = () => {
 
             {error && (
                 <div className="mb-4 rounded-lg bg-red-50 border border-red-200 p-3 sm:p-4 text-red-700 text-sm">
-                    ⚠️ {error}
+                    {error}
                 </div>
             )}
 
@@ -119,8 +119,8 @@ const HomeStudent = () => {
 
                 {/* Upcoming Workshops */}
                 <section className="rounded-2xl bg-white p-6 shadow-sm border border-gray-100 hover:shadow-md transition md:col-span-1 lg:col-span-2">
-                    <h2 className="mb-4 text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
-                        📅 Upcoming Workshops
+                    <h2 className="mb-4 text-base sm:text-lg font-semibold text-gray-800">
+                        Upcoming Workshops
                     </h2>
                     {upcomingWorkshops.length === 0 ? (
                         <p className="text-sm text-gray-500 py-4">No workshops available yet. Check back soon!</p>
@@ -139,7 +139,7 @@ const HomeStudent = () => {
                                         <span className="text-sm text-gray-700 truncate">{workshop.title}</span>
                                     </div>
                                     <span className="text-xs text-gray-500 ml-2 shrink-0">
-                                        {workshop.remainingSlots === 0 ? '❌ Full' : `✓ ${workshop.remainingSlots} slots`}
+                                        {workshop.remainingSlots === 0 ? 'Full' : `${workshop.remainingSlots} slots`}
                                     </span>
                                 </li>
                             ))}
@@ -149,8 +149,8 @@ const HomeStudent = () => {
 
                 {/* My Registrations */}
                 <section className="rounded-2xl bg-white p-6 shadow-sm border border-gray-100 hover:shadow-md transition md:col-span-1 lg:col-span-1">
-                    <h2 className="mb-4 text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
-                        ✔️ My Registrations
+                    <h2 className="mb-4 text-base sm:text-lg font-semibold text-gray-800">
+                        My Registrations
                     </h2>
                     {myRegistrations.length === 0 ? (
                         <div className="py-4 text-center">
@@ -187,8 +187,8 @@ const HomeStudent = () => {
 
                 {/* Quick Actions */}
                 <section className="rounded-2xl bg-white p-6 shadow-sm border border-gray-100 hover:shadow-md transition md:col-span-2 lg:col-span-3">
-                    <h2 className="mb-4 text-base sm:text-lg font-semibold text-gray-800 flex items-center gap-2">
-                        ⚡ Quick Actions
+                    <h2 className="mb-4 text-base sm:text-lg font-semibold text-gray-800">
+                        Quick Actions
                     </h2>
                     <div className="flex flex-col sm:flex-row gap-3">
                         <button
@@ -207,7 +207,7 @@ const HomeStudent = () => {
                             onClick={() => navigate('/workshops')}
                             className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 transition"
                         >
-                            📱 Check Attendance
+                            Check Attendance
                         </button>
                     </div>
                 </section>
