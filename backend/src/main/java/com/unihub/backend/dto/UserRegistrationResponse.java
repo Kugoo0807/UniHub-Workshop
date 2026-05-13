@@ -13,6 +13,9 @@ public class UserRegistrationResponse {
     private String title;
     private String status;
     private String qrCode;
+    private String paymentIdempotencyKey;
+    private LocalDateTime startTime;
+    private LocalDateTime endTime;
     private LocalDateTime createdAt;
     private Long price;
 }

@@ -11,6 +11,7 @@ import com.unihub.backend.service.WorkshopService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,6 +38,7 @@ public class WorkshopController {
     }
 
     @GetMapping("/my-workshops")
+    @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<List<UserRegistrationResponse>> getMyWorkshops(Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof Number)) {
             throw new com.unihub.backend.exception.UnauthorizedException("Authentication required");
