@@ -34,6 +34,12 @@ public class WorkshopResponse {
     @Schema(description = "Workshop status", example = "DRAFT")
     private String status;
 
+    @Schema(description = "Current user's registration status for this workshop", example = "SUCCESS")
+    private String userRegistrationStatus;
+
+    @Schema(description = "Whether the current user has an active registration for this workshop", example = "true")
+    private Boolean registered;
+
     @Schema(description = "Total number of seats", example = "60")
     private Integer totalSlots;
 

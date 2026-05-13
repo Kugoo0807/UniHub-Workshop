@@ -25,6 +25,7 @@ const HomeStudent = () => {
                 const registrations = await workshopService.getUserWorkshops();
                 setMyRegistrations(
                     registrations.map((item) => ({
+                        id: item.registrationId,
                         name: item.title,
                         status:
                             item.status === 'SUCCESS'
@@ -164,9 +165,9 @@ const HomeStudent = () => {
                         </div>
                     ) : (
                         <div className="space-y-2">
-                            {myRegistrations.map(({ name, status, color }) => (
+                            {myRegistrations.map(({ id, name, status, color }) => (
                                 <div
-                                    key={name}
+                                    key={id}
                                     className="flex items-center justify-between rounded-lg border border-gray-100 p-3 hover:bg-gray-50 transition"
                                 >
                                     <span className="text-sm text-gray-700">{name}</span>

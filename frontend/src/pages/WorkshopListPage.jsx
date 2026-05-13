@@ -7,13 +7,62 @@ import RegistrationSuccessModal from '../components/workshops/RegistrationSucces
 const formatDateTime = (dt) => {
     if (!dt) return '—';
     const d = new Date(dt);
-    return d.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
-        + ' • ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' })
+        + ' • ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 };
 
 const formatPrice = (price) => {
     if (!price || Number(price) === 0) return 'Miễn phí';
     return Number(price).toLocaleString('vi-VN') + 'đ';
+};
+
+const formatDescription = (description) => {
+    const text = typeof description === 'string' ? description.trim() : '';
+    return text || 'This workshop does not have a description yet.';
+};
+
+const getRegistrationBadge = (workshop) => {
+    if (!workshop?.userRegistrationStatus) return null;
+
+    if (workshop.userRegistrationStatus === 'SUCCESS') {
+        return {
+            label: 'Registered',
+            className: 'bg-emerald-100 text-emerald-700',
+        };
+    }
+
+    if (workshop.userRegistrationStatus === 'PENDING') {
+        return {
+            label: 'Payment pending',
+            className: 'bg-amber-100 text-amber-700',
+        };
+    }
+
+    return {
+        label: 'Registered',
+        className: 'bg-sky-100 text-sky-700',
+    };
+};
+
+const isRegistrationOpen = (w) => {
+    try {
+        const now = new Date();
+        // Prefer explicit registration window if provided, otherwise fall back to start/end
+        const start = w.registrationStartTime ? new Date(w.registrationStartTime) : new Date(w.startTime);
+        const end = w.registrationEndTime ? new Date(w.registrationEndTime) : new Date(w.endTime);
+        return now >= start && now <= end;
+    } catch (e) {
+        return true; // if parsing fails, default to allow registration and let backend enforce
+    }
+};
+
+const getRegisterButtonLabel = (workshop, isRegistering) => {
+    if (isRegistering) return 'Processing...';
+    if (workshop?.userRegistrationStatus === 'SUCCESS') return 'Registered';
+    if (workshop?.userRegistrationStatus === 'PENDING') return 'Payment pending';
+    if (!isRegistrationOpen(workshop)) return 'Registration closed';
+    if (workshop?.remainingSlots === 0) return 'Full';
+    return 'Register';
 };
 
 const WorkshopListPage = () => {
@@ -91,10 +140,11 @@ const WorkshopListPage = () => {
                         qrCode: paymentResponse.qrCode,
                     }));
                 }
+                await fetchWorkshops();
                 setShowPaymentModal(false);
                 setShowSuccessModal(true);
             } else {
-                setRegistrationError(`Thanh toán thất bại: ${paymentResponse.message}`);
+                setRegistrationError(`Payment failed: ${paymentResponse.message}`);
                 await fetchWorkshops();
             }
         } catch (error) {
@@ -124,18 +174,6 @@ const WorkshopListPage = () => {
         };
         loadWorkshops();
     }, []);
-
-    const isRegistrationOpen = (w) => {
-        try {
-            const now = new Date();
-            // Prefer explicit registration window if provided, otherwise fall back to start/end
-            const start = w.registrationStartTime ? new Date(w.registrationStartTime) : new Date(w.startTime);
-            const end = w.registrationEndTime ? new Date(w.registrationEndTime) : new Date(w.endTime);
-            return now >= start && now <= end;
-        } catch (e) {
-            return true; // if parsing fails, default to allow registration and let backend enforce
-        }
-    };
 
     if (loading) {
         return (
@@ -177,30 +215,36 @@ const WorkshopListPage = () => {
                                 <h3 className="text-base font-semibold text-gray-900 group-hover:text-indigo-600 transition">
                                     {w.title}
                                 </h3>
-                                <span className={`ml-2 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                    Number(w.price) === 0
-                                        ? 'bg-emerald-100 text-emerald-700'
-                                        : 'bg-amber-100 text-amber-700'
-                                }`}>
-                                    {formatPrice(w.price)}
-                                </span>
+                                <div className="ml-2 flex flex-col items-end gap-1">
+                                    {getRegistrationBadge(w) && (
+                                        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${getRegistrationBadge(w).className}`}>
+                                            {getRegistrationBadge(w).label}
+                                        </span>
+                                    )}
+                                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                                        Number(w.price) === 0
+                                            ? 'bg-emerald-100 text-emerald-700'
+                                            : 'bg-amber-100 text-amber-700'
+                                    }`}>
+                                        {formatPrice(w.price)}
+                                    </span>
+                                </div>
                             </div>
 
-                            {w.description && (
-                                <p className="mt-2 text-sm text-gray-500 line-clamp-2">{w.description}</p>
-                            )}
+                            <p className="mt-2 text-sm text-gray-500 line-clamp-2">{formatDescription(w.description)}</p>
 
-                            <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
+                            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-400">
                                 <span>{formatDateTime(w.startTime)}</span>
+                                <span>Registration ends: {formatDateTime(w.registrationEndTime)}</span>
                                 <span className={`rounded-full px-2 py-0.5 font-semibold ${
                                     w.remainingSlots === 0
                                         ? 'bg-red-100 text-red-600'
                                         : 'bg-indigo-100 text-indigo-600'
                                 }`}>
-                                    {w.remainingSlots === 0 ? 'Full' : `${w.remainingSlots} slots left`}
+                                    {w.remainingSlots === 0 ? 'Full' : `${w.remainingSlots} seats left`}
                                 </span>
                                 {!isRegistrationOpen(w) && (
-                                    <span className="ml-2 rounded-full px-2 py-0.5 bg-gray-100 text-gray-600 font-semibold">Registration closed</span>
+                                    <span className="rounded-full px-2 py-0.5 bg-gray-100 text-gray-600 font-semibold">Registration closed</span>
                                 )}
                             </div>
                         </div>
@@ -227,6 +271,10 @@ const WorkshopListPage = () => {
                                 <span className="text-sm text-gray-700">{formatDateTime(selectedWorkshop.endTime)}</span>
                             </div>
                             <div className="flex items-center gap-2">
+                                <span className="text-sm font-medium text-gray-500 w-24">Registration ends:</span>
+                                <span className="text-sm text-gray-700">{formatDateTime(selectedWorkshop.registrationEndTime)}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium text-gray-500 w-24">Price:</span>
                                 <span className={`text-sm font-semibold ${
                                     Number(selectedWorkshop.price) === 0 ? 'text-emerald-600' : 'text-amber-600'
@@ -237,15 +285,26 @@ const WorkshopListPage = () => {
                             <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium text-gray-500 w-24">Seats:</span>
                                 <span className="text-sm text-gray-700">
-                                    {selectedWorkshop.remainingSlots} slots left
+                                    {selectedWorkshop.remainingSlots} seats left
                                 </span>
                             </div>
                         </div>
 
-                        {selectedWorkshop.description && (
+                        <div className="mt-4">
+                            <h4 className="text-sm font-medium text-gray-500 mb-1">Description:</h4>
+                            <p className="text-sm text-gray-700 whitespace-pre-wrap">{formatDescription(selectedWorkshop.description)}</p>
+                        </div>
+
+                        {selectedWorkshop.userRegistrationStatus && (
                             <div className="mt-4">
-                                <h4 className="text-sm font-medium text-gray-500 mb-1">Description:</h4>
-                                <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedWorkshop.description}</p>
+                                <h4 className="text-sm font-medium text-gray-500 mb-1">Registration status:</h4>
+                                <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                                    selectedWorkshop.userRegistrationStatus === 'SUCCESS'
+                                        ? 'bg-emerald-100 text-emerald-700'
+                                        : 'bg-amber-100 text-amber-700'
+                                }`}>
+                                    {selectedWorkshop.userRegistrationStatus === 'SUCCESS' ? 'Registered' : 'Payment pending'}
+                                </span>
                             </div>
                         )}
 
@@ -265,10 +324,15 @@ const WorkshopListPage = () => {
                             </button>
                             <button
                                 onClick={handleRegister}
-                                disabled={selectedWorkshop.remainingSlots === 0 || isRegistering || !isRegistrationOpen(selectedWorkshop)}
+                                disabled={
+                                    selectedWorkshop.remainingSlots === 0
+                                    || isRegistering
+                                    || !isRegistrationOpen(selectedWorkshop)
+                                    || Boolean(selectedWorkshop.userRegistrationStatus)
+                                }
                                 className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                             >
-                                {isRegistering ? 'Processing...' : !isRegistrationOpen(selectedWorkshop) ? 'Registration closed' : selectedWorkshop.remainingSlots === 0 ? 'Full' : 'Register'}
+                                {getRegisterButtonLabel(selectedWorkshop, isRegistering)}
                             </button>
                         </div>
                     </div>

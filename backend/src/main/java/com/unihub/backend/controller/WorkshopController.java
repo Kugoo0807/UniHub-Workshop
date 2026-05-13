@@ -27,13 +27,13 @@ public class WorkshopController {
     private final IdempotencyService idempotencyService;
 
     @GetMapping
-    public ResponseEntity<List<WorkshopResponse>> getAllWorkshops() {
-        return ResponseEntity.ok(workshopService.getPublishedWorkshops());
+    public ResponseEntity<List<WorkshopResponse>> getAllWorkshops(Authentication authentication) {
+        return ResponseEntity.ok(workshopService.getPublishedWorkshops(resolveUserId(authentication)));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<WorkshopResponse> getWorkshopById(@PathVariable Long id) {
-        return ResponseEntity.ok(workshopService.getPublishedWorkshopById(id));
+    public ResponseEntity<WorkshopResponse> getWorkshopById(@PathVariable Long id, Authentication authentication) {
+        return ResponseEntity.ok(workshopService.getPublishedWorkshopById(id, resolveUserId(authentication)));
     }
 
     @GetMapping("/my-workshops")
@@ -93,5 +93,12 @@ public class WorkshopController {
         
         registrationService.cancelRegistration(id, userId);
         return ResponseEntity.noContent().build();
+    }
+
+    private Long resolveUserId(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof Number)) {
+            return null;
+        }
+        return ((Number) authentication.getPrincipal()).longValue();
     }
 }
