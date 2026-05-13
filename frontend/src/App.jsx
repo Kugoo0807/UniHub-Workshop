@@ -12,6 +12,7 @@ import UnauthorizedPage from './pages/UnauthorizedPage';
 import HomeStudent from './pages/HomeStudent';
 import ProfilePage from './pages/ProfilePage';
 import WorkshopListPage from './pages/WorkshopListPage';
+import RegistrationHistoryPage from './pages/RegistrationHistoryPage';
 import Dashboard from './pages/Dashboard';
 import NotFoundPage from './pages/NotFoundPage';
 
@@ -45,6 +46,7 @@ const App = () => {
                                 <Route path="/" element={<HomeRedirect />} />
                                 <Route path="/profile" element={<ProfilePage />} />
                                 <Route path="/workshops" element={<WorkshopListPage />} />
+                                <Route path="/registration-history" element={<RegistrationHistoryPage />} />
                             </Route>
 
                             {/* Admin-only routes */}

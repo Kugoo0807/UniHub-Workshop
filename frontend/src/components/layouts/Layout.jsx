@@ -22,6 +22,7 @@ const Layout = () => {
                 { path: '/', label: 'Home' },
                 { path: '/workshops', label: 'Workshops' },
                 { path: '/profile', label: 'Profile' },
+                { path: '/registration-history', label: 'My Registrations' },
             ]
     ) : [];
 
@@ -152,6 +153,20 @@ const Layout = () => {
             <main>
                 <Outlet />
             </main>
+
+            <footer className="border-y border-gray-200 bg-white py-10">
+                <div className="max-w-7xl mx-auto px-6 flex flex-col items-center gap-5 text-center">
+                    <div className="flex items-center gap-4 text-[11px] font-bold uppercase tracking-widest">
+                        <span className="text-indigo-600">UniHub Workshop</span>
+                        <span className="w-1.5 h-1.5 bg-gray-300 rounded-full"></span>
+                        <span className="text-amber-600">Learning Purposes Only</span>
+                    </div>
+
+                    <span className="text-[11px] font-medium text-gray-400 uppercase tracking-[0.2em]">
+                        © {new Date().getFullYear()} UniHub Project. All rights reserved.
+                    </span>
+                </div>
+            </footer>
         </div>
     );
 };

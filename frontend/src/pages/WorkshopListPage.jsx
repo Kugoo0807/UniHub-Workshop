@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import workshopService from '../services/workshopService';
 import workshopRegistrationService from '../services/workshopRegistrationService';
 import PaymentModal from '../components/workshops/PaymentModal';
@@ -12,7 +13,7 @@ const formatDateTime = (dt) => {
 };
 
 const formatPrice = (price) => {
-    if (!price || Number(price) === 0) return 'Miễn phí';
+    if (!price || Number(price) === 0) return 'Free';
     return Number(price).toLocaleString('vi-VN') + 'đ';
 };
 
@@ -21,27 +22,18 @@ const formatDescription = (description) => {
     return text || 'This workshop does not have a description yet.';
 };
 
-const getRegistrationBadge = (workshop) => {
+const getRegistrationState = (workshop) => {
     if (!workshop?.userRegistrationStatus) return null;
 
     if (workshop.userRegistrationStatus === 'SUCCESS') {
-        return {
-            label: 'Registered',
-            className: 'bg-emerald-100 text-emerald-700',
-        };
+        return { label: 'Registered', tone: 'success' };
     }
 
     if (workshop.userRegistrationStatus === 'PENDING') {
-        return {
-            label: 'Payment pending',
-            className: 'bg-amber-100 text-amber-700',
-        };
+        return { label: 'Payment pending', tone: 'pending' };
     }
 
-    return {
-        label: 'Registered',
-        className: 'bg-sky-100 text-sky-700',
-    };
+    return { label: 'Registered', tone: 'info' };
 };
 
 const isRegistrationOpen = (w) => {
@@ -66,6 +58,7 @@ const getRegisterButtonLabel = (workshop, isRegistering) => {
 };
 
 const WorkshopListPage = () => {
+    const navigate = useNavigate();
     const [workshops, setWorkshops] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -193,6 +186,19 @@ const WorkshopListPage = () => {
                         Discover and register for exciting workshops at UniHub.
                     </p>
                 </div>
+                <div className="hidden sm:flex items-center gap-2 mt-1">
+                    <div className="w-8 h-1.5 bg-emerald-500"></div> 
+                    
+                    <span className="text-sm font-semibold text-emerald-900 uppercase tracking-wider">
+                        | Registered Workshop
+                    </span>
+                </div>
+                <button
+                    onClick={() => navigate('/registration-history')}
+                    className="rounded-lg border border-indigo-600 px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition"
+                >
+                    Registration history
+                </button>
             </div>
 
             {error && (
@@ -205,50 +211,74 @@ const WorkshopListPage = () => {
                 </div>
             ) : (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    {workshops.map((w) => (
-                        <div
-                            key={w.id}
-                            className="group cursor-pointer rounded-2xl bg-white p-5 shadow-sm border border-gray-100 hover:shadow-md hover:border-indigo-200 transition-all"
-                            onClick={() => setSelectedWorkshop(w)}
-                        >
-                            <div className="flex items-start justify-between">
-                                <h3 className="text-base font-semibold text-gray-900 group-hover:text-indigo-600 transition">
-                                    {w.title}
-                                </h3>
-                                <div className="ml-2 flex flex-col items-end gap-1">
-                                    {getRegistrationBadge(w) && (
-                                        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${getRegistrationBadge(w).className}`}>
-                                            {getRegistrationBadge(w).label}
+                    {workshops.map((w) => {
+                        const registrationState = getRegistrationState(w);
+
+                        return (
+                            <div
+                                key={w.id}
+                                className={`group cursor-pointer rounded-2xl bg-white p-5 shadow-sm border transition-all hover:shadow-md hover:border-indigo-200 ${
+                                    registrationState?.tone === 'success'
+                                        ? 'border-emerald-300 ring-2 ring-emerald-200 bg-emerald-50/30 shadow-emerald-100/60'
+                                        : registrationState?.tone === 'pending'
+                                            ? 'border-amber-300 ring-2 ring-amber-200 bg-amber-50/30 shadow-amber-100/60'
+                                            : 'border-gray-100'
+                                }`}
+                                onClick={() => setSelectedWorkshop(w)}
+                            >
+                                <div className="flex items-start justify-between">
+                                    <h3 className="text-base font-semibold text-gray-900 group-hover:text-indigo-600 transition">
+                                        {w.title}
+                                    </h3>
+                                    <div className="ml-2 flex flex-col items-end gap-1">
+                                        <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                                            Number(w.price) === 0
+                                                ? 'bg-emerald-100 text-emerald-700'
+                                                : 'bg-amber-100 text-amber-700'
+                                        }`}>
+                                            {formatPrice(w.price)}
                                         </span>
-                                    )}
-                                    <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                                        Number(w.price) === 0
-                                            ? 'bg-emerald-100 text-emerald-700'
-                                            : 'bg-amber-100 text-amber-700'
-                                    }`}>
-                                        {formatPrice(w.price)}
-                                    </span>
+                                    </div>
+                                </div>
+
+                                <p className="mt-2 text-sm text-gray-500 line-clamp-2">{formatDescription(w.description)}</p>
+
+                                <div className="mt-2 pt-3 border-t border-gray-50 flex flex-col gap-2.5">
+                                    <div className="flex flex-col gap-3">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Workshop Date</span>
+                                            <span className="text-[13px] font-semibold text-gray-800 leading-tight">
+                                                {formatDateTime(w.startTime)}
+                                            </span>
+                                        </div>
+                                        
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Registration End</span>
+                                            <span className="text-[13px] text-gray-500 font-medium leading-tight">
+                                                {formatDateTime(w.registrationEndTime)}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-2 pt-1">
+                                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
+                                            w.remainingSlots === 0 
+                                                ? 'bg-red-50 text-red-600 border-red-100' 
+                                                : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                                        }`}>
+                                            {w.remainingSlots === 0 ? 'FULL' : `${w.remainingSlots} SEATS LEFT`}
+                                        </span>
+                                        
+                                        {!isRegistrationOpen(w) && (
+                                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md border border-gray-200 bg-gray-50 text-gray-400">
+                                                CLOSED
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-
-                            <p className="mt-2 text-sm text-gray-500 line-clamp-2">{formatDescription(w.description)}</p>
-
-                            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-400">
-                                <span>{formatDateTime(w.startTime)}</span>
-                                <span>Registration ends: {formatDateTime(w.registrationEndTime)}</span>
-                                <span className={`rounded-full px-2 py-0.5 font-semibold ${
-                                    w.remainingSlots === 0
-                                        ? 'bg-red-100 text-red-600'
-                                        : 'bg-indigo-100 text-indigo-600'
-                                }`}>
-                                    {w.remainingSlots === 0 ? 'Full' : `${w.remainingSlots} seats left`}
-                                </span>
-                                {!isRegistrationOpen(w) && (
-                                    <span className="rounded-full px-2 py-0.5 bg-gray-100 text-gray-600 font-semibold">Registration closed</span>
-                                )}
-                            </div>
-                        </div>
-                    ))}
+                        )}
+                    )}
                 </div>
             )}
 
