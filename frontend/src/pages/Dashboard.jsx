@@ -355,7 +355,7 @@ const Dashboard = () => {
                                             </button>
 
                                             {openActionId === w.id && (
-                                                <div className={`absolute right-0 z-50 w-28 rounded-md border border-gray-200 bg-white py-0.5 shadow-lg ${workshops.indexOf(w) >= workshops.length - 2 && workshops.length > 3 ? 'bottom-full mb-1' : 'mt-1'}`}>
+                                                <div className={`absolute right-0 z-50 w-28 rounded-md border border-gray-200 bg-white py-0.5 shadow-lg ${workshops.indexOf(w) >= workshops.length - 2 && workshops.length > 0 ? 'bottom-full mb-1' : 'mt-1'}`}>
                                                     <button onClick={() => { handleViewStats(w.id); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-50 transition">
                                                         View Statistics
                                                     </button>
