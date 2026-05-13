@@ -48,11 +48,32 @@ const isRegistrationOpen = (w) => {
     }
 };
 
+const isRegistrationClosed = (w) => {
+    try {        
+        const now = new Date();
+        const end = w.registrationEndTime ? new Date(w.registrationEndTime) : new Date(w.endTime);
+        return now > end;
+    } catch (e) {
+        return false; // if parsing fails, default to not closed and let backend enforce
+    }
+};
+
+const isRegistrationStarted = (w) => {
+    try {
+        const now = new Date();
+        const start = w.registrationStartTime ? new Date(w.registrationStartTime) : null;
+        return start && now >= start;
+    } catch (e) {
+        return false; // if parsing fails, default to not started and let backend enforce
+    }
+};
+
 const getRegisterButtonLabel = (workshop, isRegistering) => {
     if (isRegistering) return 'Processing...';
     if (workshop?.userRegistrationStatus === 'SUCCESS') return 'Registered';
     if (workshop?.userRegistrationStatus === 'PENDING') return 'Payment pending';
-    if (!isRegistrationOpen(workshop)) return 'Registration closed';
+    if (!isRegistrationStarted(workshop)) return 'Registration Not Started';
+    if (isRegistrationClosed(workshop)) return 'Registration closed';
     if (workshop?.remainingSlots === 0) return 'Full';
     return 'Register';
 };
@@ -269,7 +290,13 @@ const WorkshopListPage = () => {
                                             {w.remainingSlots === 0 ? 'FULL' : `${w.remainingSlots} SEATS LEFT`}
                                         </span>
                                         
-                                        {!isRegistrationOpen(w) && (
+                                        {!isRegistrationStarted(w) && (
+                                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md border border-gray-200 bg-gray-50 text-gray-400">
+                                                UPCOMING
+                                            </span>
+                                        )}
+
+                                        {isRegistrationClosed(w) && (
                                             <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md border border-gray-200 bg-gray-50 text-gray-400">
                                                 CLOSED
                                             </span>
@@ -292,28 +319,36 @@ const WorkshopListPage = () => {
                         <h2 className="text-xl font-bold text-gray-900">{selectedWorkshop.title}</h2>
 
                         <div className="mt-4 space-y-3">
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-500 w-24">Time:</span>
-                                <span className="text-sm text-gray-700">{formatDateTime(selectedWorkshop.startTime)}</span>
+                            <div className="flex items-start gap-2">
+                                <span className="text-sm font-medium text-gray-500 w-36 shrink-0">Time:</span>
+                                <span className="text-sm text-gray-700 font-semibold">{formatDateTime(selectedWorkshop.startTime)}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-500 w-24">Ends:</span>
+                            <div className="flex items-start gap-2">
+                                <span className="text-sm font-medium text-gray-500 w-36 shrink-0">Ends:</span>
                                 <span className="text-sm text-gray-700">{formatDateTime(selectedWorkshop.endTime)}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-500 w-24">Registration ends:</span>
+                            
+                            {/* Bổ sung Registration Starts */}
+                            <div className="flex items-start gap-2 border-t border-gray-50 pt-2">
+                                <span className="text-sm font-medium text-gray-500 w-36 shrink-0">Registration starts:</span>
+                                <span className="text-sm text-gray-700">{formatDateTime(selectedWorkshop.registrationStartTime)}</span>
+                            </div>
+                            
+                            <div className="flex items-start gap-2">
+                                <span className="text-sm font-medium text-gray-500 w-36 shrink-0">Registration ends:</span>
                                 <span className="text-sm text-gray-700">{formatDateTime(selectedWorkshop.registrationEndTime)}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-500 w-24">Price:</span>
-                                <span className={`text-sm font-semibold ${
+                            
+                            <div className="flex items-start gap-2 border-t border-gray-50 pt-2">
+                                <span className="text-sm font-medium text-gray-500 w-36 shrink-0">Price:</span>
+                                <span className={`text-sm font-bold ${
                                     Number(selectedWorkshop.price) === 0 ? 'text-emerald-600' : 'text-amber-600'
                                 }`}>
                                     {formatPrice(selectedWorkshop.price)}
                                 </span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-gray-500 w-24">Seats:</span>
+                            <div className="flex items-start gap-2">
+                                <span className="text-sm font-medium text-gray-500 w-36 shrink-0">Seats:</span>
                                 <span className="text-sm text-gray-700">
                                     {selectedWorkshop.remainingSlots} seats left
                                 </span>
