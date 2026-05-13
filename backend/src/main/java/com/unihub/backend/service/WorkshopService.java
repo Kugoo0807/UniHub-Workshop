@@ -119,7 +119,7 @@ public class WorkshopService {
     public WorkshopResponse updateWorkshop(Long id, WorkshopRequest request) {
         Workshop workshop = findWorkshopWithRoomOrThrow(id);
 
-        // 1. Lookup Room (may be the same or different)
+        // 1. Lookup Room (maybe the same or different)
         Room room = findRoomOrThrow(request.roomId());
 
         // 2. Validate all business rules

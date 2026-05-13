@@ -44,7 +44,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/test").permitAll()
                         .requestMatchers("/api/v1/auth/**").permitAll()
-                    .requestMatchers(HttpMethod.POST, "/api/v1/payments/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/payments/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/workshops").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/workshops/**").permitAll()
                         .requestMatchers(SWAGGER_WHITELIST).permitAll()
