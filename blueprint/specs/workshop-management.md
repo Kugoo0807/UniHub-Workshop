@@ -77,6 +77,7 @@ CREATE TABLE workshops (
    - `end_time` phải sau `start_time`. (Phía frontend cũng nên có ràng buộc này khi người dùng lựa cho ở frontend)
    - `registration_start_time` phải trước `registration_end_time`.
    - `registration_start_time` phải trước `start_time`.
+   - `registration_end_time` phải trước `start_time` ít nhất 1 ngày (G25).
    - `total_slots <= rooms.capacity`.
 4. Set `remaining_slots = total_slots`, `status = DRAFT` nếu không truyền, `price` default `0` nếu không truyền.
 5. INSERT workshop vào DB.
@@ -210,6 +211,7 @@ CREATE TABLE workshops (
 | `POST /api/workshops` — `end_time` trước `start_time` | `400` | Service throw `IllegalArgumentException` |
 | `POST /api/workshops` — `total_slots = 0` hoặc âm | `400` | Bean Validation (`@Positive`) |
 | `POST /api/workshops` — `total_slots > rooms.capacity` | `409` | Service throw `ConflictException` |
+| `POST /api/workshops` — `registration_end_time` sau `start_time - 1 day` | `400` | Service throw `IllegalArgumentException` |
 | `POST /api/workshops` — `room_id` không tồn tại | `404` | Service throw `ResourceNotFoundException` |
 | `POST /api/workshops` — Student JWT | `403` | Spring Security chặn |
 | `PUT /api/workshops/{id}` — Thay đổi `total_slots` khi đã có đăng ký | `409` | Service throw `ConflictException` |
@@ -222,7 +224,7 @@ CREATE TABLE workshops (
 
 - **Security:** Mọi endpoints (kể cả GET) đều yêu cầu `@PreAuthorize("hasRole('ADMIN')")` tại Controller. Tính năng này dành riêng cho Admin.
 - **Redis:** Key pattern `workshop:{id}:slots`. TTL = `registration_end_time + 24h buffer` (tránh key zombie). Feature **Registration** (downstream) sẽ dùng Redis Lua Script để `DECR` atomic trên key này.
-- **Validation:** `end_time > start_time` cần xử lý ở **Service layer** vì Bean Validation không hỗ trợ cross-field validation trên record.
+- **Validation:** `end_time > start_time` và `registration_end_time <= start_time - 1 day` cần xử lý ở **Service layer** vì Bean Validation không hỗ trợ cross-field validation trên record.
 - **Room capacity:** `total_slots <= rooms.capacity` bắt buộc ở Service layer.
 - **Status:** Chỉ cho phép `DRAFT`, `PUBLISHED`, `CANCELLED`, `COMPLETED`.
 - **Flyway:** Schema `workshops` đã tồn tại trong `V1__init_database.sql`. Seed data mẫu có trong `V2__seed_user_workshop.sql` (2 workshop mẫu). Migration tiếp theo nên đánh số **`V4__...`** (V3 đã được sử dụng cho feature Auth: `V3__modify_users_for_activation.sql`).

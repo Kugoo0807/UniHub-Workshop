@@ -91,7 +91,8 @@ public class WorkshopService {
         // 4. Initialize Redis slot counter with TTL
         long ttlSeconds = computeSlotTtl(saved);
         seatLockingService.initSlots(String.valueOf(saved.getId()), saved.getTotalSlots(), ttlSeconds);
-        log.info("Initialized Redis slots for workshop {}: total={}, TTL={}s", saved.getId(), saved.getTotalSlots(), ttlSeconds);
+        log.info("Initialized Redis slots for workshop {}: total={}, TTL={}s", saved.getId(), saved.getTotalSlots(),
+                ttlSeconds);
 
         return toResponse(saved);
     }
@@ -183,7 +184,8 @@ public class WorkshopService {
 
     /**
      * Cancel a workshop (G8/G9).
-     * Sets status to CANCELLED and removes Redis slots to block in-flight registrations.
+     * Sets status to CANCELLED and removes Redis slots to block in-flight
+     * registrations.
      */
     @Transactional
     public void cancelWorkshop(Long id) {
@@ -256,12 +258,20 @@ public class WorkshopService {
 
     /**
      * Validate all business rules for create/update (G4/G5/G6/G24).
+     * Rules:
+     * 1. end_time > start_time
+     * 2. start_time and end_time must be on the same day (G24)
+     * 3. registration_start_time < registration_end_time
+     * 4. registration_start_time < start_time
+     * 5. registration_end_time < start_time ← NEW
+     * 6. total_slots <= room.capacity (G6)
      */
     private void validateBusinessRules(WorkshopRequest request, Room room) {
         // 1. end_time > start_time
         validateTimeRange(request.startTime(), request.endTime());
 
-        // 2. start_time and end_time must be on the same day (G24 — mandatory per design.md)
+        // 2. start_time and end_time must be on the same day (G24 — mandatory per
+        // design.md)
         if (request.startTime() != null && request.endTime() != null
                 && !request.startTime().toLocalDate().equals(request.endTime().toLocalDate())) {
             throw new IllegalArgumentException("start_time and end_time must be on the same day");
@@ -281,7 +291,14 @@ public class WorkshopService {
                     "registration_start_time must be before start_time");
         }
 
-        // 5. total_slots <= room.capacity (G6)
+        // 5. registration_end_time <= start_time - 1 day
+        if (request.registrationEndTime() != null && request.startTime() != null
+                && request.registrationEndTime().isAfter(request.startTime().minusDays(1))) {
+            throw new IllegalArgumentException(
+                    "registration_end_time must be at least 1 day before start_time");
+        }
+
+        // 6. total_slots <= room.capacity (G6)
         if (request.totalSlots() > room.getCapacity()) {
             throw new ConflictException(
                     "total_slots (" + request.totalSlots() + ") exceeds room capacity ("
@@ -336,8 +353,10 @@ public class WorkshopService {
     }
 
     /**
-     * Get the most accurate remaining slots for a workshop, preferring Redis value if available.
-     * G19: getRemainingSlots() now returns -1 when key doesn't exist → proper fallback to DB.
+     * Get the most accurate remaining slots for a workshop, preferring Redis value
+     * if available.
+     * G19: getRemainingSlots() now returns -1 when key doesn't exist → proper
+     * fallback to DB.
      */
     private int getAccurateRemainingSlots(Workshop workshop) {
         int redisSlots = seatLockingService.getRemainingSlots(String.valueOf(workshop.getId()));

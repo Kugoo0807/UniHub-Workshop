@@ -117,7 +117,7 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0),
                 LocalDateTime.of(2026, 5, 5, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 7, 30));
+                LocalDateTime.of(2026, 5, 9, 7, 0)); // 1 day and 1 hour before
         Workshop saved = workshopFromRequest(request, 2L);
         saved.setPrice(0L);
 
@@ -138,7 +138,7 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0),
                 LocalDateTime.of(2026, 5, 5, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 7, 30));
+                LocalDateTime.of(2026, 5, 9, 7, 0));
         Workshop saved = workshopFromRequest(request, 3L);
 
         when(workshopRepository.save(any(Workshop.class))).thenReturn(saved);
@@ -158,7 +158,7 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 5, 10, 12, 0),
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 5, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 7, 30));
+                LocalDateTime.of(2026, 5, 9, 7, 0));
 
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
@@ -178,7 +178,7 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0),
                 LocalDateTime.of(2026, 5, 5, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 7, 30));
+                LocalDateTime.of(2026, 5, 9, 7, 0));
 
         ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
         Validator validator = factory.getValidator();
@@ -199,7 +199,7 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0),
                 LocalDateTime.of(2026, 5, 5, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 7, 30));
+                LocalDateTime.of(2026, 5, 9, 7, 0));
 
         ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
         Validator validator = factory.getValidator();
@@ -233,7 +233,7 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 11, 8, 0),  // different day
                 LocalDateTime.of(2026, 5, 5, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 7, 30));
+                LocalDateTime.of(2026, 5, 9, 7, 0));
 
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
@@ -276,6 +276,23 @@ class WorkshopServiceTest {
         assertTrue(ex.getMessage().contains("registration_start_time must be before"));
     }
 
+    @Test
+    void createWorkshop_regEndLessThannOneDayBeforeWorkshopStart_throwsIllegalArgument() {
+        // New rule: registrationEndTime <= startTime - 1 day
+        WorkshopRequest request = new WorkshopRequest(
+                "Late Reg End", null, 1L, "Speaker A",
+                30, 0L,
+                LocalDateTime.of(2026, 5, 10, 8, 0),  // Start: 10th
+                LocalDateTime.of(2026, 5, 10, 12, 0),
+                LocalDateTime.of(2026, 5, 5, 8, 0),
+                LocalDateTime.of(2026, 5, 9, 23, 0)); // End: 9th 23:00 (less than 24h before 10th 08:00)
+
+        IllegalArgumentException ex = assertThrows(
+                IllegalArgumentException.class,
+                () -> workshopService.createWorkshop(request));
+        assertTrue(ex.getMessage().contains("at least 1 day before"));
+    }
+
     // ──────────── G6: Room capacity validation ────────────
 
     @Test
@@ -286,7 +303,7 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0),
                 LocalDateTime.of(2026, 5, 5, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 7, 30));
+                LocalDateTime.of(2026, 5, 9, 7, 0));
 
         ConflictException ex = assertThrows(
                 ConflictException.class,
@@ -302,7 +319,7 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0),
                 LocalDateTime.of(2026, 5, 5, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 7, 30));
+                LocalDateTime.of(2026, 5, 9, 7, 0));
 
         when(roomRepository.findById(999L)).thenReturn(Optional.empty());
 
@@ -455,7 +472,7 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0),
                 LocalDateTime.of(2026, 5, 5, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 7, 30));
+                LocalDateTime.of(2026, 5, 9, 7, 0));
 
         when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(existing));
         when(registrationRepository.existsByWorkshopId(1L)).thenReturn(true);
@@ -478,7 +495,7 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0),
                 LocalDateTime.of(2026, 5, 5, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 7, 30));
+                LocalDateTime.of(2026, 5, 9, 7, 0));
 
         when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(existing));
         when(registrationRepository.existsByWorkshopId(1L)).thenReturn(false);
@@ -506,7 +523,7 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0),
                 LocalDateTime.of(2026, 5, 5, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 7, 30));
+                LocalDateTime.of(2026, 5, 9, 7, 0));
 
         when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(existing));
         when(workshopRepository.save(any(Workshop.class))).thenReturn(existing);
@@ -537,7 +554,7 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 5, 10, 12, 0),
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 5, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 7, 30));
+                LocalDateTime.of(2026, 5, 9, 7, 0));
 
         assertThrows(IllegalArgumentException.class, () -> workshopService.updateWorkshop(1L, request));
         verify(workshopRepository, never()).save(any(Workshop.class));
@@ -670,7 +687,7 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 6, 1, 9, 0),
                 LocalDateTime.of(2026, 6, 1, 17, 0),
                 LocalDateTime.of(2026, 5, 25, 8, 0),
-                LocalDateTime.of(2026, 6, 1, 8, 30));
+                LocalDateTime.of(2026, 5, 31, 8, 30));
 
         when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(existing));
         when(workshopRepository.save(any(Workshop.class))).thenReturn(existing);
@@ -700,7 +717,7 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 5, 10, 8, 0),
                 LocalDateTime.of(2026, 5, 10, 12, 0),
                 LocalDateTime.of(2026, 5, 5, 8, 0),       // registrationStartTime
-                LocalDateTime.of(2026, 5, 10, 7, 30));     // registrationEndTime
+                LocalDateTime.of(2026, 5, 9, 7, 0));     // registrationEndTime
     }
 
     private Workshop baseWorkshop(Long id) {
@@ -717,7 +734,7 @@ class WorkshopServiceTest {
                 .startTime(LocalDateTime.of(2026, 5, 10, 8, 0))
                 .endTime(LocalDateTime.of(2026, 5, 10, 12, 0))
                 .registrationStartTime(LocalDateTime.of(2026, 5, 5, 8, 0))
-                .registrationEndTime(LocalDateTime.of(2026, 5, 10, 7, 30))
+                .registrationEndTime(LocalDateTime.of(2026, 5, 9, 7, 0))
                 .build();
     }
 

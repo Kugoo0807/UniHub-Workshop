@@ -81,6 +81,16 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
     // Get selected room for capacity validation
     const selectedRoom = rooms.find(r => String(r.id) === form.roomId);
 
+    // Calculate maximum allowed registration end time (startTime - 24h)
+    let maxRegistrationEndTime = "";
+    if (form.workshopDate && form.workshopStartTime) {
+        const workshopStart = new Date(`${form.workshopDate}T${form.workshopStartTime}`);
+        const maxEnd = new Date(workshopStart.getTime() - 24 * 60 * 60 * 1000);
+        // Correctly format to local YYYY-MM-DDTHH:mm for datetime-local input
+        const tzOffset = maxEnd.getTimezoneOffset() * 60000;
+        maxRegistrationEndTime = new Date(maxEnd.getTime() - tzOffset).toISOString().slice(0, 16);
+    }
+
     const handleSubmit = (e) => {
         e.preventDefault();
         setError('');
@@ -128,6 +138,15 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
         // V5: registrationStartTime < startTime
         if (new Date(form.registrationStartTime) >= new Date(startTime)) {
             setError('Registration must start before the workshop begins');
+            return;
+        }
+        // V5b: registrationEndTime <= startTime - 1 day
+        const startDT = new Date(startTime);
+        const regEndDT = new Date(form.registrationEndTime);
+        const oneDayInMs = 24 * 60 * 60 * 1000;
+
+        if (startDT.getTime() - regEndDT.getTime() < oneDayInMs) {
+            setError('Registration must close at least 1 day before the workshop starts');
             return;
         }
 
@@ -303,6 +322,7 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
                                 type="datetime-local"
                                 value={form.registrationStartTime}
                                 onChange={handleChange}
+                                max={form.registrationEndTime || maxRegistrationEndTime}
                                 className={inputClass}
                             />
                         </div>
@@ -314,8 +334,14 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
                                 value={form.registrationEndTime}
                                 onChange={handleChange}
                                 min={form.registrationStartTime}
+                                max={maxRegistrationEndTime}
                                 className={inputClass}
                             />
+                            {maxRegistrationEndTime && (
+                                <p className="mt-1 text-[10px] text-gray-500 italic">
+                                    Must close by: {maxRegistrationEndTime.replace('T', ' ')}
+                                </p>
+                            )}
                         </div>
                     </div>
 
