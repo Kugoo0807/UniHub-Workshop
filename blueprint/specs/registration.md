@@ -47,6 +47,19 @@ Tài liệu này chỉ mô tả **luồng API của sinh viên**, xử lý Contr
    - Thất bại (card declined, insufficient funds): cập nhật `registrations` thành `FAILED`, gọi `SeatLockingService.releaseSeat(workshopId, userId)`, trả `HTTP 402`.
    - Timeout hoặc circuit open: giữ `registrations` ở `PENDING`, trả `HTTP 503`.
 
+### 3) Xem lịch sử đăng ký workshop
+1. Sinh viên gửi `GET /api/v1/workshops/my-workshops` với JWT hợp lệ và role `STUDENT`.
+2. Backend join giữa `registrations` và `workshops` để lấy thêm `title`, `price`, `start_time`, `end_time` cho từng lượt đăng ký.
+3. Backend trả danh sách theo `created_at` giảm dần.
+4. `qr_code` chỉ trả về khi `status = 'SUCCESS'`.
+5. `payment_idempotency_key` chỉ cần thiết cho các lượt `PENDING` để cho phép thanh toán lại từ UI.
+6. Frontend phân nhóm hiển thị:
+   - Nhóm 1: `PENDING` và workshop chưa kết thúc (`end_time > now`).
+   - Nhóm 2: `SUCCESS`, `FAILED`, `CANCELLED`, hoặc workshop đã kết thúc.
+7. Trong nhóm 2, các lượt `FAILED` / `CANCELLED` / đã kết thúc có thể làm mờ UI.
+8. Với lượt `SUCCESS`, UI hiển thị rõ mã QR check-in nhưng vẫn đặt dưới nhóm `PENDING` để sinh viên ưu tiên xử lý giao dịch chưa hoàn tất.
+9. Với lượt `PENDING` còn trong thời gian chờ, UI cho phép `Thanh toán` lại bằng `payment_idempotency_key` và `Hủy vé` để giải phóng chỗ ngay.
+
 ## Kịch bản lỗi (HTTP)
 
 ### 401 Unauthorized
@@ -66,6 +79,10 @@ Tài liệu này chỉ mô tả **luồng API của sinh viên**, xử lý Contr
 ### 503 Service Unavailable
 - Circuit Breaker mở hoặc Payment Gateway timeout.
 - `registrations` giữ `PENDING` để client retry với cùng `Idempotency-Key`.
+
+### 401 / 403 khi xem lịch sử đăng ký
+- Không có JWT hợp lệ hoặc role không phải `STUDENT`.
+- Spring Security hoặc `@PreAuthorize` chặn request trước khi vào service.
 
 ### Xử lý Timeout Thanh Toán (Background Job)
 - Thời gian giữ chỗ mặc định: 10 phút.
@@ -87,3 +104,5 @@ Tài liệu này chỉ mô tả **luồng API của sinh viên**, xử lý Contr
 - [ ] Payment timeout/circuit open -> trả `HTTP 503`, giữ `PENDING`.
 - [ ] Gửi lại cùng `Idempotency-Key` -> trả kết quả cũ, không gọi Payment Gateway.
 - [ ] Không cho đăng ký 2 lần cùng workshop.
+- [ ] Xem lịch sử đăng ký trả đúng `start_time`, `end_time`, `created_at`, và chỉ trả `qr_code` khi `SUCCESS`.
+- [ ] UI phân nhóm `PENDING` lên trên, `SUCCESS` vẫn hiện QR ở nhóm lịch sử, và các lượt đã kết thúc/thất bại được làm mờ.
