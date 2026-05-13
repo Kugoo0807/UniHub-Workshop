@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,4 +34,6 @@ public interface WorkshopRepository extends JpaRepository<Workshop, Long> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("UPDATE Workshop w SET w.description = :description WHERE w.id = :id")
     void updateDescription(@Param("id") Long id, @Param("description") String description);
+
+    List<Workshop> findByStatusAndEndTimeBefore(String status, LocalDateTime time);
 }
