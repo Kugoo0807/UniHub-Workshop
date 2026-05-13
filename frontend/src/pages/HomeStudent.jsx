@@ -1,7 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import workshopService from '../services/workshopService';
+import workshopRegistrationService from '../services/workshopRegistrationService';
+import PaymentModal from '../components/workshops/PaymentModal';
+
+const HOLD_EXPIRY_MINUTES = 10;
 
 const HomeStudent = () => {
     const { user, logout } = useAuth();
@@ -11,46 +15,103 @@ const HomeStudent = () => {
     const [myRegistrations, setMyRegistrations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [paymentTarget, setPaymentTarget] = useState(null);
+    const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+
+    const fetchData = useCallback(async () => {
+        try {
+            setLoading(true);
+            setError('');
+
+            const [workshops, registrations] = await Promise.all([
+                workshopService.getAll(),
+                workshopService.getUserWorkshops(),
+            ]);
+
+            setUpcomingWorkshops((workshops || []).slice(0, 3));
+            setMyRegistrations(registrations || []);
+        } catch (err) {
+            setError('Failed to load workshops. Please try again.');
+            console.error('Error fetching data:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                setError('');
-                
-                // Fetch all workshops (in real app would filter for upcoming)
-                const workshops = await workshopService.getAll();
-                setUpcomingWorkshops(workshops.slice(0, 3) || []);
-                
-                const registrations = await workshopService.getUserWorkshops();
-                setMyRegistrations(
-                    registrations.map((item) => ({
-                        id: item.registrationId,
-                        name: item.title,
-                        status:
-                            item.status === 'SUCCESS'
-                                ? 'Registered'
-                                : item.status === 'PENDING'
-                                    ? 'Pending payment'
-                                    : 'Cancelled',
-                        color:
-                            item.status === 'SUCCESS'
-                                ? 'green'
-                                : item.status === 'PENDING'
-                                    ? 'yellow'
-                                    : 'red',
-                    }))
-                );
-            } catch (err) {
-                setError('Failed to load workshops. Please try again.');
-                console.error('Error fetching data:', err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        
         fetchData();
-    }, []);
+    }, [fetchData]);
+
+    const splitRegistrations = useMemo(() => {
+        const now = new Date();
+
+        const sortable = [...myRegistrations].sort((left, right) => {
+            const leftTime = new Date(left.createdAt || 0).getTime();
+            const rightTime = new Date(right.createdAt || 0).getTime();
+            return rightTime - leftTime;
+        });
+
+        const pending = [];
+        const history = [];
+
+        sortable.forEach((registration) => {
+            const endTime = registration.endTime ? new Date(registration.endTime) : null;
+            const isPendingUpcoming = registration.status === 'PENDING' && (!endTime || endTime > now);
+
+            if (isPendingUpcoming) {
+                pending.push(registration);
+                return;
+            }
+
+            history.push(registration);
+        });
+
+        return { pending, history };
+    }, [myRegistrations]);
+
+    const paymentModalWorkshop = paymentTarget
+        ? {
+            title: paymentTarget.title,
+            price: paymentTarget.price,
+        }
+        : null;
+
+    const openPaymentModal = (registration) => {
+        if (!registration.paymentIdempotencyKey) {
+            setError('No payment code was found for this registration.');
+            return;
+        }
+
+        setError('');
+        setPaymentTarget(registration);
+        setPaymentModalOpen(true);
+    };
+
+    const handleRetryPayment = async () => {
+        if (!paymentTarget) return;
+
+        const response = await workshopRegistrationService.processPayment(
+            paymentTarget.workshopId,
+            paymentTarget.paymentIdempotencyKey
+        );
+
+        if (!response?.success) {
+            throw new Error(response?.message || 'Payment failed');
+        }
+
+        setPaymentModalOpen(false);
+        setPaymentTarget(null);
+        await fetchData();
+    };
+
+    const handleCancelPending = async (workshopId) => {
+        try {
+            await workshopRegistrationService.cancelRegistration(workshopId);
+            await fetchData();
+        } catch (err) {
+            setError(err.response?.data?.message || err.message || 'Failed to cancel registration.');
+        }
+    };
 
     const handleBrowseWorkshops = () => {
         navigate('/workshops');
@@ -64,6 +125,170 @@ const HomeStudent = () => {
         logout();
         navigate('/login');
     };
+
+    const formatDateTime = (value) => {
+        if (!value) return '—';
+        const date = new Date(value);
+        return `${date.toLocaleDateString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+        })} ${date.toLocaleTimeString('vi-VN', {
+            hour: '2-digit',
+            minute: '2-digit',
+        })}`;
+    };
+
+    const formatPrice = (value) => {
+        if (!value || Number(value) === 0) return 'Free';
+        return Number(value).toLocaleString('vi-VN') + 'đ';
+    };
+
+    const getQrImageUrl = (qrCode) => {
+        if (!qrCode) return '';
+        return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrCode)}`;
+    };
+
+    const isHoldExpired = (registration) => {
+        if (registration.status !== 'PENDING' || !registration.createdAt) return false;
+        const createdAt = new Date(registration.createdAt).getTime();
+        return Date.now() - createdAt >= HOLD_EXPIRY_MINUTES * 60 * 1000;
+    };
+
+    const isWorkshopEnded = (registration) => {
+        if (!registration.endTime) return false;
+        return new Date(registration.endTime).getTime() <= Date.now();
+    };
+
+    const getStatusMeta = (status) => {
+        switch (status) {
+            case 'SUCCESS':
+                return { label: 'Confirmed', className: 'bg-emerald-100 text-emerald-700' };
+            case 'PENDING':
+                return { label: 'Payment pending', className: 'bg-amber-100 text-amber-700' };
+            case 'FAILED':
+                return { label: 'Payment failed', className: 'bg-red-100 text-red-700' };
+            case 'CANCELLED':
+                return { label: 'Cancelled', className: 'bg-gray-100 text-gray-600' };
+            default:
+                return { label: status || '—', className: 'bg-gray-100 text-gray-600' };
+        }
+    };
+
+    const RegistrationCard = ({ registration, muted = false, showActions = false }) => {
+        const statusMeta = getStatusMeta(registration.status);
+        const holdExpired = isHoldExpired(registration);
+        const ended = isWorkshopEnded(registration);
+        const canPay = registration.status === 'PENDING' && registration.paymentIdempotencyKey && !holdExpired;
+        const canCancel = registration.status === 'PENDING' && !holdExpired;
+
+        return (
+            <article
+                className={`rounded-2xl border p-4 shadow-sm transition ${
+                    registration.status === 'PENDING'
+                        ? 'border-amber-200 bg-amber-50/60'
+                        : 'border-gray-100 bg-white'
+                } ${muted ? 'opacity-50' : ''}`}
+            >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div>
+                                <h3 className="text-base font-semibold text-gray-900">{registration.title}</h3>
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Workshop #{registration.workshopId}
+                                </p>
+                            </div>
+                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusMeta.className}`}>
+                                {statusMeta.label}
+                            </span>
+                        </div>
+
+                        <div className="mt-4 grid gap-2 text-sm text-gray-600 sm:grid-cols-2">
+                            <p><span className="font-medium text-gray-500">Price:</span> {formatPrice(registration.price)}</p>
+                            <p><span className="font-medium text-gray-500">Registered at:</span> {formatDateTime(registration.createdAt)}</p>
+                            <p><span className="font-medium text-gray-500">Start time:</span> {formatDateTime(registration.startTime)}</p>
+                            <p><span className="font-medium text-gray-500">End time:</span> {formatDateTime(registration.endTime)}</p>
+                        </div>
+
+                        {registration.status === 'SUCCESS' && registration.qrCode && (
+                            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+                                    Check-in QR code
+                                </p>
+                                <div className="mt-3 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
+                                    <img
+                                        src={getQrImageUrl(registration.qrCode)}
+                                        alt={`QR code for ${registration.title}`}
+                                        className="h-28 w-28 rounded-xl border border-emerald-100 bg-white p-2"
+                                    />
+                                    <div className="space-y-1 text-sm text-emerald-900">
+                                        <p className="font-medium">Scan this code to check in at the workshop.</p>
+                                        <p className="break-all text-xs text-emerald-800">{registration.qrCode}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {registration.status === 'PENDING' && holdExpired && (
+                            <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+                                Cancellation in progress. The seat will be released automatically if the transaction is not completed.
+                            </div>
+                        )}
+
+                        {registration.status === 'SUCCESS' && !registration.qrCode && (
+                            <div className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+                                QR code is not ready yet. Please refresh later.
+                            </div>
+                        )}
+                    </div>
+
+                    {showActions && (
+                        <div className="flex shrink-0 flex-col gap-2 lg:min-w-45">
+                            {holdExpired ? (
+                                <div className="rounded-lg bg-gray-50 border border-gray-200 px-4 py-2 text-sm text-gray-600 text-center">
+                                    Cancellation in progress
+                                </div>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => openPaymentModal(registration)}
+                                        disabled={!canPay}
+                                        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        Pay now
+                                    </button>
+                                    <button
+                                        onClick={() => handleCancelPending(registration.workshopId)}
+                                        disabled={!canCancel}
+                                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        Cancel registration
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {registration.status === 'PENDING' && !holdExpired && !registration.paymentIdempotencyKey && (
+                    <p className="mt-3 text-xs text-amber-700">
+                        No payment code is available for retry. Please wait for the system to update or register again if needed.
+                    </p>
+                )}
+
+                {registration.status === 'PENDING' && ended && (
+                    <p className="mt-3 text-xs text-gray-500">
+                        The workshop has already ended, but this registration is still pending. Please verify the payment status.
+                    </p>
+                )}
+            </article>
+        );
+    };
+
+    const pendingCount = splitRegistrations.pending.length;
+    const historyCount = splitRegistrations.history.length;
+    const successCount = myRegistrations.filter((registration) => registration.status === 'SUCCESS').length;
 
     if (loading) {
         return (
@@ -86,6 +311,12 @@ const HomeStudent = () => {
                         Welcome back, {user?.fullName ?? 'Student'}
                     </p>
                 </div>
+                <button
+                    onClick={handleLogout}
+                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                >
+                    Logout
+                </button>
             
             </div>
 
@@ -95,19 +326,34 @@ const HomeStudent = () => {
                 </div>
             )}
 
+            <div className="mb-6 grid gap-4 sm:grid-cols-3">
+                <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100">
+                    <p className="text-sm font-medium text-gray-500">Pending registrations</p>
+                    <p className="mt-2 text-3xl font-bold text-gray-900">{pendingCount}</p>
+                </div>
+                <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100">
+                    <p className="text-sm font-medium text-gray-500">History items</p>
+                    <p className="mt-2 text-3xl font-bold text-gray-900">{historyCount}</p>
+                </div>
+                <div className="rounded-2xl bg-white p-5 shadow-sm border border-gray-100">
+                    <p className="text-sm font-medium text-gray-500">Successful check-ins</p>
+                    <p className="mt-2 text-3xl font-bold text-gray-900">{successCount}</p>
+                </div>
+            </div>
+
             <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {/* User Info Card */}
                 <section className="rounded-2xl bg-white p-6 shadow-sm border border-gray-100 hover:shadow-md transition">
                     <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">Your Info</h3>
                     <div className="space-y-2">
                         <p className="text-sm text-gray-700">
-                            <span className="font-medium">Tên:</span> {user?.fullName}
+                            <span className="font-medium">Name:</span> {user?.fullName}
                         </p>
                         <p className="text-sm text-gray-700">
                             <span className="font-medium">Email:</span> {user?.email}
                         </p>
                         <p className="text-sm text-gray-700">
-                            <span className="font-medium">MSSV:</span> {user?.studentCode || 'N/A'}
+                            <span className="font-medium">Student ID:</span> {user?.studentCode || 'N/A'}
                         </p>
                     </div>
                     <button
@@ -148,40 +394,78 @@ const HomeStudent = () => {
                     )}
                 </section>
 
-                {/* My Registrations */}
-                <section className="rounded-2xl bg-white p-6 shadow-sm border border-gray-100 hover:shadow-md transition md:col-span-1 lg:col-span-1">
-                    <h2 className="mb-4 text-base sm:text-lg font-semibold text-gray-800">
-                        My Registrations
-                    </h2>
-                    {myRegistrations.length === 0 ? (
-                        <div className="py-4 text-center">
+                {/* Registration History */}
+                <section className="rounded-2xl bg-white p-6 shadow-sm border border-gray-100 hover:shadow-md transition md:col-span-2 lg:col-span-3">
+                    <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h2 className="text-base sm:text-lg font-semibold text-gray-800">
+                                Registration History
+                            </h2>
+                            <p className="mt-1 text-sm text-gray-500">
+                                Pending workshops stay on top; successful QR codes remain visible underneath.
+                            </p>
+                        </div>
+                        <button
+                            onClick={handleBrowseWorkshops}
+                            className="rounded-lg border border-indigo-600 px-4 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-50 transition"
+                        >
+                            Browse workshops
+                        </button>
+                    </div>
+
+                    {splitRegistrations.pending.length === 0 && splitRegistrations.history.length === 0 ? (
+                        <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-6 py-10 text-center">
                             <p className="text-sm text-gray-500 mb-3">No registrations yet</p>
                             <button
                                 onClick={handleBrowseWorkshops}
-                                className="text-xs sm:text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                                className="text-sm font-medium text-indigo-600 hover:text-indigo-700"
                             >
                                 Register now →
                             </button>
                         </div>
                     ) : (
-                        <div className="space-y-2">
-                            {myRegistrations.map(({ id, name, status, color }) => (
-                                <div
-                                    key={id}
-                                    className="flex items-center justify-between rounded-lg border border-gray-100 p-3 hover:bg-gray-50 transition"
-                                >
-                                    <span className="text-sm text-gray-700">{name}</span>
-                                    <span
-                                        className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                                            color === 'green'
-                                                ? 'bg-green-100 text-green-700'
-                                                : 'bg-yellow-100 text-yellow-700'
-                                        }`}
-                                    >
-                                        {status}
-                                    </span>
+                        <div className="space-y-8">
+                            {splitRegistrations.pending.length > 0 && (
+                                <div>
+                                    <div className="mb-3 flex items-center justify-between">
+                                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                                            {splitRegistrations.pending.length} item(s)
+                                        </span>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {splitRegistrations.pending.map((registration) => (
+                                            <RegistrationCard
+                                                key={registration.registrationId}
+                                                registration={registration}
+                                                showActions
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
-                            ))}
+                            )}
+
+                            {splitRegistrations.history.length > 0 && (
+                                <div>
+                                    <div className="mb-3 flex items-center justify-between">
+                                        <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+                                            {splitRegistrations.history.length} item(s)
+                                        </span>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {splitRegistrations.history.map((registration) => (
+                                            <RegistrationCard
+                                                key={registration.registrationId}
+                                                registration={registration}
+                                                muted={
+                                                    registration.status === 'FAILED' ||
+                                                    registration.status === 'CANCELLED' ||
+                                                    (isWorkshopEnded(registration) && registration.status !== 'SUCCESS')
+                                                }
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </section>
@@ -213,6 +497,22 @@ const HomeStudent = () => {
                     </div>
                 </section>
             </div>
+
+            {paymentTarget && (
+                <PaymentModal
+                    isOpen={paymentModalOpen}
+                    workshop={paymentModalWorkshop}
+                    idempotencyKey={paymentTarget.paymentIdempotencyKey}
+                    onClose={() => {
+                        setPaymentModalOpen(false);
+                        setPaymentTarget(null);
+                    }}
+                    onPaymentSuccess={handleRetryPayment}
+                    onPaymentError={(paymentError) => {
+                        setError(paymentError?.message || 'Payment failed');
+                    }}
+                />
+            )}
         </div>
     );
 };
