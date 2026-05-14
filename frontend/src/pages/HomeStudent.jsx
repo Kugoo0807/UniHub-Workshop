@@ -21,8 +21,8 @@ const HomeStudent = () => {
             setLoading(true);
             setError('');
 
-            const workshops = await workshopService.getAll();
-            setUpcomingWorkshops((workshops || []).slice(0, 3));
+            const data = await workshopService.getAll(0, 3);
+            setUpcomingWorkshops(data.content || []);
         } catch (err) {
             setError('Failed to load workshops. Please try again.');
             console.error('Error fetching data:', err);

@@ -2,6 +2,7 @@ package com.unihub.backend.controller;
 
 import com.unihub.backend.enums.IdempotencyState;
 import com.unihub.backend.dto.ErrorResponse;
+import com.unihub.backend.dto.PageResponse;
 import com.unihub.backend.dto.PaymentResultResponse;
 import com.unihub.backend.dto.RegistrationResponse;
 import com.unihub.backend.dto.UserRegistrationResponse;
@@ -37,13 +38,16 @@ public class WorkshopController {
     private final IdempotencyService idempotencyService;
 
     @GetMapping
-    @Operation(summary = "List published workshops", description = "Returns all published workshops. If authenticated, user-specific registration info may be included.")
+    @Operation(summary = "List published workshops", description = "Returns paginated published workshops. If authenticated, user-specific registration info may be included.")
     @SecurityRequirement(name = com.unihub.backend.config.OpenApiConfig.BEARER_AUTH_SCHEME)
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Workshop list retrieved")
+            @ApiResponse(responseCode = "200", description = "Workshop page retrieved")
     })
-    public ResponseEntity<List<WorkshopResponse>> getAllWorkshops(Authentication authentication) {
-        return ResponseEntity.ok(workshopService.getPublishedWorkshops(resolveUserId(authentication)));
+    public ResponseEntity<PageResponse<WorkshopResponse>> getAllWorkshops(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size,
+            Authentication authentication) {
+        return ResponseEntity.ok(workshopService.getPublishedWorkshops(resolveUserId(authentication), page, size));
     }
 
     @GetMapping("/{id}")
@@ -69,13 +73,16 @@ public class WorkshopController {
             @ApiResponse(responseCode = "403", description = "Forbidden",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
-    public ResponseEntity<List<UserRegistrationResponse>> getMyWorkshops(Authentication authentication) {
+    public ResponseEntity<PageResponse<UserRegistrationResponse>> getMyWorkshops(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size,
+            Authentication authentication) {
         if (authentication == null || !(authentication.getPrincipal() instanceof Number)) {
             throw new com.unihub.backend.exception.UnauthorizedException("Authentication required");
         }
 
         Long userId = ((Number) authentication.getPrincipal()).longValue();
-        return ResponseEntity.ok(registrationService.getUserRegistrations(userId));
+        return ResponseEntity.ok(registrationService.getUserRegistrations(userId, page, size));
     }
 
     @PostMapping("/{id}/register")
