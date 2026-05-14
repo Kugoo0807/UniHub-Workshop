@@ -4,10 +4,13 @@ const adminWorkshopUrl = '/admin/workshops';
 
 const adminWorkshopService = {
     /**
-     * Get all workshops (Admin only).
+     * Get paginated list of all workshops (Admin only).
+     * @param {number} page - 0-indexed page number (default 0)
+     * @param {number} size - page size (default 12)
+     * @returns {Promise<PageResponse>} - { content, page, size, totalElements, totalPages, last }
      */
-    getAll() {
-        return axiosClient.get(adminWorkshopUrl);
+    getAll(page = 0, size = 12) {
+        return axiosClient.get(adminWorkshopUrl, { params: { page, size } });
     },
 
     /**

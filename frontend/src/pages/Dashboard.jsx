@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import adminWorkshopService from '../services/adminWorkshopService';
 import { useAuth } from '../context/AuthContext';
 import WorkshopFormModal from '../components/workshops/WorkshopFormModal';
+import PaginationControl from '../components/common/PaginationControl';
 
 const formatDateTime = (dt) => {
     if (!dt) return '—';
@@ -55,6 +56,12 @@ const Dashboard = () => {
     const [cancelConfirm, setCancelConfirm] = useState(null);
     const [statsData, setStatsData] = useState(null);
 
+    // Pagination state
+    const PAGE_SIZE = 12;
+    const [currentPage, setCurrentPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+    const [totalElements, setTotalElements] = useState(0);
+
     // AI Summary State
     const [aiUploadOpen, setAiUploadOpen] = useState(false);
     const [aiWorkshop, setAiWorkshop] = useState(null);
@@ -72,20 +79,24 @@ const Dashboard = () => {
 
     const aiPollRef = useRef({ cancelled: false, timeoutId: null });
 
-    const fetchWorkshops = useCallback(async ({ silent = false } = {}) => {
+    const fetchWorkshops = useCallback(async ({ silent = false, page = currentPage } = {}) => {
         try {
             if (!silent) setLoading(true);
             setError('');
-            const data = await adminWorkshopService.getAll();
-            setWorkshops(data);
+            const data = await adminWorkshopService.getAll(page, PAGE_SIZE);
+            // data is the PageResponse envelope: { content, page, size, totalElements, totalPages, last }
+            setWorkshops(data.content ?? data);
+            setCurrentPage(data.page ?? page);
+            setTotalPages(data.totalPages ?? 1);
+            setTotalElements(data.totalElements ?? (data.content ?? data).length);
         } catch (err) {
             setError(err.message);
         } finally {
             if (!silent) setLoading(false);
         }
-    }, []);
+    }, [currentPage]);
 
-    useEffect(() => { fetchWorkshops(); }, [fetchWorkshops]);
+    useEffect(() => { fetchWorkshops({ page: 0 }); }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         return () => {
@@ -97,7 +108,7 @@ const Dashboard = () => {
     }, []);
 
     // Update stats value when workshops load
-    stats[1].value = workshops.length.toString();
+    stats[1].value = totalElements.toString();
 
     const handleCreate = () => {
         setEditingWorkshop(null);
@@ -118,7 +129,7 @@ const Dashboard = () => {
                 await adminWorkshopService.create(payload);
             }
             setModalOpen(false);
-            fetchWorkshops();
+            fetchWorkshops({ page: currentPage });
         } catch (err) {
             setError(err.message);
         } finally {
@@ -130,7 +141,9 @@ const Dashboard = () => {
         try {
             await adminWorkshopService.delete(id);
             setDeleteConfirm(null);
-            fetchWorkshops();
+            // If we deleted the last item on this page, go back one page
+            const nextPage = workshops.length === 1 && currentPage > 0 ? currentPage - 1 : currentPage;
+            fetchWorkshops({ page: nextPage });
         } catch (err) {
             setError(err.message);
             setDeleteConfirm(null);
@@ -141,7 +154,7 @@ const Dashboard = () => {
         try {
             await adminWorkshopService.cancel(id);
             setCancelConfirm(null);
-            fetchWorkshops();
+            fetchWorkshops({ page: currentPage });
         } catch (err) {
             setError(err.message);
             setCancelConfirm(null);
@@ -151,7 +164,7 @@ const Dashboard = () => {
     const handlePublish = async (id) => {
         try {
             await adminWorkshopService.publish(id);
-            fetchWorkshops();
+            fetchWorkshops({ page: currentPage });
         } catch (err) {
             setError(err.message);
         }
@@ -270,7 +283,8 @@ const Dashboard = () => {
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900">Workshop Management</h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        {workshops.length} workshop{workshops.length !== 1 ? 's' : ''} total
+                        {totalElements} workshop{totalElements !== 1 ? 's' : ''} total
+                        {totalPages > 1 && ` · Page ${currentPage + 1} of ${totalPages}`}
                     </p>
                 </div>
                 <button
@@ -392,6 +406,16 @@ const Dashboard = () => {
                     </table>
                 </div>
             )}
+
+            {/* Pagination Controls */}
+            <PaginationControl
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalElements={totalElements}
+                pageSize={PAGE_SIZE}
+                onPageChange={(page) => fetchWorkshops({ page })}
+                itemLabel="workshops"
+            />
 
             {/* Create/Edit Modal */}
             <WorkshopFormModal
