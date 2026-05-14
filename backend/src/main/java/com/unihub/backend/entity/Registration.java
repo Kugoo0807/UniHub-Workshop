@@ -28,7 +28,7 @@ public class Registration {
     private String qrCode;
 
     @Column(nullable = false, length = 20)
-    private String status;  // PENDING, SUCCESS, CANCELLED
+    private String status; // PENDING, SUCCESS, CANCELLED
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

@@ -20,6 +20,10 @@ const authService = {
     refreshToken(refreshToken) {
         return axiosClient.post('/auth/refresh', { refreshToken });
     },
+
+    getCurrentUserProfile() {
+        return axiosClient.get('/auth/me');
+    },
 };
 
 export default authService;

@@ -19,6 +19,27 @@ public class WorkshopResponse {
     @Schema(description = "Workshop description")
     private String description;
 
+    @Schema(description = "Room ID", example = "1")
+    private Long roomId;
+
+    @Schema(description = "Room name", example = "Hall A")
+    private String roomName;
+
+    @Schema(description = "Room capacity", example = "100")
+    private Integer roomCapacity;
+
+    @Schema(description = "Speaker name", example = "Nguyen Van A")
+    private String speaker;
+
+    @Schema(description = "Workshop status", example = "DRAFT")
+    private String status;
+
+    @Schema(description = "Current user's registration status for this workshop", example = "SUCCESS")
+    private String userRegistrationStatus;
+
+    @Schema(description = "Whether the current user has an active registration for this workshop", example = "true")
+    private Boolean registered;
+
     @Schema(description = "Total number of seats", example = "60")
     private Integer totalSlots;
 
@@ -33,4 +54,13 @@ public class WorkshopResponse {
 
     @Schema(description = "Workshop end time")
     private LocalDateTime endTime;
+
+    @Schema(description = "Registration start time")
+    private LocalDateTime registrationStartTime;
+
+    @Schema(description = "Registration end time")
+    private LocalDateTime registrationEndTime;
+
+    @Schema(description = "Number of students successfully registered", example = "25")
+    private Long successfulCount;
 }

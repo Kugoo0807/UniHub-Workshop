@@ -24,13 +24,14 @@ public class Workshop {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "room_id", nullable = false)
-    private Room roomId;
+    private Room room;
 
     @Column(nullable = false)
     private String speaker;
 
     @Column(nullable = false, length = 20)
-    private String status;  // DRAFT, PUBLISHED, COMPLETED, CANCELLED
+    @Builder.Default
+    private String status = "DRAFT";  // DRAFT, PUBLISHED, COMPLETED, CANCELLED
 
     @Column(name = "total_slots", nullable = false)
     private Integer totalSlots;
@@ -38,8 +39,9 @@ public class Workshop {
     @Column(name = "remaining_slots", nullable = false)
     private Integer remainingSlots;
 
-    @Column
-    private Long price;
+    @Column(columnDefinition = "BIGINT DEFAULT 0")
+    @Builder.Default
+    private Long price = 0L;
 
     @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;

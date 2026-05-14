@@ -88,15 +88,47 @@ public class AdminWorkshopController {
         return ResponseEntity.ok(workshopService.updateWorkshop(id, request));
     }
 
+    @PutMapping("/{id}/publish")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Publish a workshop", description = "Sets a DRAFT workshop to PUBLISHED status. Requires ADMIN role.")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_AUTH_SCHEME)
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Workshop published"),
+            @ApiResponse(responseCode = "400", description = "Only DRAFT can be published",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Workshop not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<java.util.Map<String, String>> publishWorkshop(@PathVariable Long id) {
+        workshopService.publishWorkshop(id);
+        return ResponseEntity.ok(java.util.Map.of("message", "Workshop has been published"));
+    }
+
+    @PutMapping("/{id}/cancel")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Cancel a workshop", description = "Cancels a workshop by setting status to CANCELLED. Requires ADMIN role.")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_AUTH_SCHEME)
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Workshop cancelled"),
+            @ApiResponse(responseCode = "400", description = "Cannot cancel (already completed/cancelled)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Workshop not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<java.util.Map<String, String>> cancelWorkshop(@PathVariable Long id) {
+        workshopService.cancelWorkshop(id);
+        return ResponseEntity.ok(java.util.Map.of("message", "Workshop has been cancelled"));
+    }
+
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Delete a workshop", description = "Deletes a workshop. Cannot delete if successful registrations exist. Requires ADMIN role.")
+    @Operation(summary = "Delete a workshop", description = "Deletes a DRAFT workshop. Only DRAFT workshops can be deleted. Requires ADMIN role.")
     @SecurityRequirement(name = OpenApiConfig.BEARER_AUTH_SCHEME)
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "Workshop deleted"),
             @ApiResponse(responseCode = "404", description = "Workshop not found",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "409", description = "Conflict — has successful registrations",
+            @ApiResponse(responseCode = "409", description = "Conflict — only DRAFT workshops can be deleted",
                     content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
     })
     public ResponseEntity<Void> deleteWorkshop(@PathVariable Long id) {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/layouts/Layout';
 import ProtectedRoute from './routes/ProtectedRoute';
 import GuestRoute from './routes/GuestRoute';
@@ -10,8 +10,18 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import HomeStudent from './pages/HomeStudent';
+import ProfilePage from './pages/ProfilePage';
+import WorkshopListPage from './pages/WorkshopListPage';
+import RegistrationHistoryPage from './pages/RegistrationHistoryPage';
 import Dashboard from './pages/Dashboard';
 import NotFoundPage from './pages/NotFoundPage';
+
+// Auto-redirect ADMIN to /admin when visiting /
+const HomeRedirect = () => {
+    const { user } = useAuth();
+    if (user?.role === 'ADMIN') return <Navigate to="/admin" replace />;
+    return <HomeStudent />;
+};
 
 const App = () => {
     return (
@@ -33,7 +43,10 @@ const App = () => {
 
                             {/* Student-only routes */}
                             <Route element={<ProtectedRoute allowedRoles={['STUDENT', 'ADMIN']} />}>
-                                <Route path="/" element={<HomeStudent />} />
+                                <Route path="/" element={<HomeRedirect />} />
+                                <Route path="/profile" element={<ProfilePage />} />
+                                <Route path="/workshops" element={<WorkshopListPage />} />
+                                <Route path="/registration-history" element={<RegistrationHistoryPage />} />
                             </Route>
 
                             {/* Admin-only routes */}

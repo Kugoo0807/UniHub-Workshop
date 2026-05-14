@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import authService from '../services/authService';
 
 const AuthContext = createContext(null);
 
@@ -6,19 +7,44 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    useEffect(() => {
-        // Check for stored authentication data on application load
-        const storedToken = localStorage.getItem('access_token');
-        const storedRole = localStorage.getItem('role');
-        const storedUserId = localStorage.getItem('user_id');
+    const loadCurrentUser = async () => {
+        const response = await authService.getCurrentUserProfile();
+        const profile = response;
 
-        if (storedToken && storedRole) {
-            setUser({ id: storedUserId, role: storedRole });
-        }
-        setIsLoading(false);
+        setUser({
+            id: profile.userId,
+            role: profile.role,
+            fullName: profile.fullName,
+            email: profile.email,
+            studentCode: profile.studentCode,
+            phoneNumber: profile.phoneNumber,
+            status: profile.status,
+        });
+
+        return profile;
+    };
+
+    useEffect(() => {
+        const initializeAuth = async () => {
+            const storedToken = localStorage.getItem('access_token');
+            const storedRole = localStorage.getItem('role');
+            const storedUserId = localStorage.getItem('user_id');
+
+            if (storedToken && storedRole) {
+                try {
+                    await loadCurrentUser();
+                } catch {
+                    setUser({ id: storedUserId, role: storedRole });
+                }
+            }
+
+            setIsLoading(false);
+        };
+
+        initializeAuth();
     }, []);
 
-    const login = (authData) => {
+    const login = async (authData) => {
         const { accessToken, refreshToken, userId, role } = authData;
         
         localStorage.setItem('access_token', accessToken);
@@ -26,7 +52,11 @@ export const AuthProvider = ({ children }) => {
         localStorage.setItem('role', role);
         localStorage.setItem('user_id', userId);
 
-        setUser({ id: userId, role: role });
+        try {
+            await loadCurrentUser();
+        } catch {
+            setUser({ id: userId, role: role });
+        }
     };
 
     const logout = () => {

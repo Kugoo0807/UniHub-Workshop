@@ -39,7 +39,7 @@ CREATE TABLE workshops (
 - `id` kiểu **`BIGSERIAL`** → Java entity dùng `Long`.
 - `price` kiểu **`BIGINT DEFAULT 0`** → dùng `Long` và default `0L` trong Entity.
 - `description` **nullable** → Admin có thể tạo workshop trước rồi AI điền sau (xem spec `ai-summary.md`).
-- Schema **không có** constraint `CHECK` trên DB → validation xử lý ở **Service / Bean Validation**.
+- Schema đã có constraint `CHECK` trên DB (xem `V5__add_contraints.sql`): `start_time < end_time`, `registration_start_time < registration_end_time`, `remaining_slots >= 0`, `remaining_slots <= total_slots`. Validation ở Service vẫn cần để trả friendly error message trước khi DB reject.
 
 ---
 
@@ -77,6 +77,7 @@ CREATE TABLE workshops (
    - `end_time` phải sau `start_time`. (Phía frontend cũng nên có ràng buộc này khi người dùng lựa cho ở frontend)
    - `registration_start_time` phải trước `registration_end_time`.
    - `registration_start_time` phải trước `start_time`.
+   - `registration_end_time` phải trước `start_time` ít nhất 1 ngày (G25).
    - `total_slots <= rooms.capacity`.
 4. Set `remaining_slots = total_slots`, `status = DRAFT` nếu không truyền, `price` default `0` nếu không truyền.
 5. INSERT workshop vào DB.
@@ -87,31 +88,43 @@ CREATE TABLE workshops (
 
 1. Client gửi `PUT /api/workshops/{id}` với JWT role `ADMIN`.
 2. Nếu `id` không tồn tại → trả `404`.
-3. Cho phép cập nhật: `title`, `description`, `room_id`, `speaker`, `status`, `total_slots` (nếu chưa có đăng ký), `price`, `start_time`, `end_time`, `registration_start_time`, `registration_end_time`.
-4. **Không cho phép** thay đổi `total_slots` nếu đã có bản ghi trong bảng `registrations` với `workshop_id` này.
+3. Cho phép cập nhật: `title`, `description`, `room_id`, `speaker`, `status`, `total_slots`, `price`, `start_time`, `end_time`, `registration_start_time`, `registration_end_time`.
+4. **Cho phép** thay đổi `total_slots` ngay cả khi đã có đăng ký, miễn là giá trị mới không nhỏ hơn số lượng sinh viên đã đăng ký thành công (`SUCCESS`).
 5. Khi cập nhật `total_slots` hoặc `room_id`, phải đảm bảo `total_slots <= rooms.capacity`.
-6. Nếu vi phạm rule trên → trả `409 Conflict`.
-6. Trả về `200 OK` kèm workshop đã cập nhật.
+6. Nếu vi phạm rule trên (ví dụ: `total_slots` vượt quá sức chứa phòng hoặc nhỏ hơn số người đã đăng ký thành công) → trả `409 Conflict`.
+   - **Ràng buộc quan trọng:** Khi cập nhật, `total_slots` không được nhỏ hơn số lượng sinh viên đã đăng ký thành công (`status = SUCCESS`).
+   - Tương tự, không được đổi sang phòng có sức chứa (`capacity`) nhỏ hơn số lượng sinh viên đã đăng ký thành công.
+7. Trả về `200 OK` kèm workshop đã cập nhật.
 
 ### 5. Hủy workshop (Admin)
 
 1. Client gửi `PUT /api/workshops/{id}/cancel` với JWT role `ADMIN`.
 2. Nếu `id` không tồn tại → trả `404`.
 3. Kiểm tra trạng thái hiện tại của workshop:
-   - Nếu `status` đã là `COMPLETED` hoặc `CANCELLED` → trả `400 Bad Request` (Không thể hủy một workshop đã xong hoặc đã hủy).
-4. Thực hiện Hủy:
-   - Cập nhật `status = 'CANCELLED'` trong bảng `workshops`.
-   - Các bản ghi trong `registrations` giữ nguyên (để làm lịch sử hoặc hỗ trợ hoàn tiền sau này nếu có).
-   - Xóa key Redis `workshop:{id}:slots` để chặn tuyệt đối các request đăng ký mới đang in-flight.
-   - Phải có thông báo xác nhận hoàn trả tiền đối với workshop có phí (@TODO ở tính năng hệ thống thông báo)
+   - **Chỉ workshop đang ở trạng thái `PUBLISHED` mới có thể bị hủy.**
+   - Nếu `status = DRAFT` → trả `400 Bad Request` kèm thông báo: "Cannot cancel a DRAFT workshop. Use DELETE to remove it instead."
+   - Nếu `status` là `COMPLETED` hoặc `CANCELLED` → trả `400 Bad Request`.
+4. Thực hiện Hủy **(theo thứ tự)**:
+   - **Bước 1:** Cập nhật `status = 'CANCELLED'` trong bảng `workshops`.
+   - **Bước 2:** Tìm toàn bộ các bản ghi `registrations` thuộc workshop này đang ở trạng thái `SUCCESS` hoặc `PENDING` và cập nhật thành `CANCELLED` (bulk update, một câu lệnh UPDATE duy nhất).
+   - **Bước 3:** Đối với các vé đã thanh toán (có record trong bảng `payments` là `COMPLETED`) → **giữ nguyên trạng thái ở bảng `payments`** để phục vụ đối soát hoàn tiền. Không được cập nhật bảng `payments`.
+   - **Bước 4:** Xóa key Redis `workshop:{id}:slots` để chặn tuyệt đối các request đăng ký mới đang in-flight.
+   - **Bước 5:** @TODO (Notification Service) — Nếu workshop có phí (`price > 0`) và có người đã thanh toán thành công, gửi thông báo xác nhận hoàn trả tiền tới toàn bộ registrants có `COMPLETED` payment.
 5. Trả về `200 OK` kèm thông báo đã hủy.
+
+> **Lifecycle rõ ràng:**
+> - `DRAFT` → có thể **Publish** hoặc **Delete**. Không thể Cancel.
+> - `PUBLISHED` → có thể **Cancel**. Không thể Delete.
+> - `CANCELLED` / `COMPLETED` → không thể thực hiện thêm action nào.
 
 ### 6. Xóa workshop (Admin)
 
 1. Client gửi `DELETE /api/workshops/{id}` với JWT role `ADMIN`.
 2. Nếu `id` không tồn tại → trả `404`.
-3. **Chỉ cho phép xóa (Hard Delete)** nếu workshop có `status = DRAFT`. 
-4. Nếu vi phạm (đã có người đăng ký) → trả `409 Conflict` kèm thông báo: "Chỉ được xóa Draft Workshop".
+3. **Chỉ cho phép xóa (Hard Delete)** nếu workshop có `status = DRAFT`.
+   - Workshop ở bất kỳ trạng thái nào khác (`PUBLISHED`, `CANCELLED`, `COMPLETED`) đều **không thể xóa**.
+   - Lý do: DRAFT là trạng thái chưa công bố, chưa có ai đăng ký, an toàn để xóa hoàn toàn.
+4. Nếu vi phạm → trả `409 Conflict` kèm thông báo: "Only DRAFT workshops can be deleted".
 5. Khi xóa thành công:
    - `DELETE` record trong DB.
    - `DEL workshop:{id}:slots` trên Redis.
@@ -123,7 +136,7 @@ CREATE TABLE workshops (
 2. Nếu `id` không tồn tại → trả `404`.
 3. Service tính toán:
    - `total_slots`: từ DB.
-   - `remaining_slots`: từ Redis key `workshop:slots:{id}` (realtime).
+   - `remaining_slots`: từ Redis key `workshop:{id}:slots` (realtime).
    - `registered_count`: `COUNT` từ bảng `registrations` có `workshop_id` này và `status = 'SUCCESS'`.
    - `fill_rate`: `(total_slots - remaining_slots) / total_slots * 100` (%).
 4. Trả về `200 OK`.
@@ -210,10 +223,14 @@ CREATE TABLE workshops (
 | `POST /api/workshops` — `end_time` trước `start_time` | `400` | Service throw `IllegalArgumentException` |
 | `POST /api/workshops` — `total_slots = 0` hoặc âm | `400` | Bean Validation (`@Positive`) |
 | `POST /api/workshops` — `total_slots > rooms.capacity` | `409` | Service throw `ConflictException` |
+| `POST /api/workshops` — `registration_end_time` sau `start_time - 1 day` | `400` | Service throw `IllegalArgumentException` |
 | `POST /api/workshops` — `room_id` không tồn tại | `404` | Service throw `ResourceNotFoundException` |
 | `POST /api/workshops` — Student JWT | `403` | Spring Security chặn |
-| `PUT /api/workshops/{id}` — Thay đổi `total_slots` khi đã có đăng ký | `409` | Service throw `ConflictException` |
-| `DELETE /api/workshops/{id}` — Có đăng ký `status = 'SUCCESS'` | `409` | Service throw `ConflictException` |
+| `PUT /api/workshops/{id}` — Thay đổi `total_slots` nhỏ hơn số lượng đã đăng ký SUCCESS | `409` | Service throw `ConflictException` |
+| `PUT /api/workshops/{id}` — Đổi sang phòng có `capacity` nhỏ hơn số lượng đã đăng ký SUCCESS | `409` | Service throw `ConflictException` (do `total_slots` phải >= SUCCESS và `total_slots` <= `capacity`) |
+| `PUT /api/workshops/{id}/cancel` — Workshop ở trạng thái `DRAFT` | `400` | Service throw `IllegalArgumentException` — "Cannot cancel a DRAFT workshop. Use DELETE to remove it instead." |
+| `PUT /api/workshops/{id}/cancel` — Workshop đã `COMPLETED` hoặc `CANCELLED` | `400` | Service throw `IllegalArgumentException` |
+| `DELETE /api/workshops/{id}` — Workshop không ở trạng thái `DRAFT` | `409` | Service throw `ConflictException` — "Only DRAFT workshops can be deleted" |
 | Redis không khả dụng khi đọc `remaining_slots` | — | Fallback về cột `remaining_slots` trong DB |
 
 ---
@@ -221,8 +238,8 @@ CREATE TABLE workshops (
 ## Ràng buộc
 
 - **Security:** Mọi endpoints (kể cả GET) đều yêu cầu `@PreAuthorize("hasRole('ADMIN')")` tại Controller. Tính năng này dành riêng cho Admin.
-- **Redis:** Key pattern `workshop:{id}:slots`. Không đặt TTL (tồn tại vĩnh viễn đến khi xóa thủ công). Feature **Registration** (downstream) sẽ dùng Redis Lua Script để `DECR` atomic trên key này.
-- **Validation:** `end_time > start_time` cần xử lý ở **Service layer** vì Bean Validation không hỗ trợ cross-field validation trên record.
+- **Redis:** Key pattern `workshop:{id}:slots`. TTL = `registration_end_time + 24h buffer` (tránh key zombie). Feature **Registration** (downstream) sẽ dùng Redis Lua Script để `DECR` atomic trên key này.
+- **Validation:** `end_time > start_time` và `registration_end_time <= start_time - 1 day` cần xử lý ở **Service layer** vì Bean Validation không hỗ trợ cross-field validation trên record.
 - **Room capacity:** `total_slots <= rooms.capacity` bắt buộc ở Service layer.
 - **Status:** Chỉ cho phép `DRAFT`, `PUBLISHED`, `CANCELLED`, `COMPLETED`.
 - **Flyway:** Schema `workshops` đã tồn tại trong `V1__init_database.sql`. Seed data mẫu có trong `V2__seed_user_workshop.sql` (2 workshop mẫu). Migration tiếp theo nên đánh số **`V4__...`** (V3 đã được sử dụng cho feature Auth: `V3__modify_users_for_activation.sql`).
@@ -334,10 +351,15 @@ public record WorkshopRequest(
 | `WM-UT-01` | Tạo workshop hợp lệ | INSERT DB, `remaining_slots = total_slots`, Redis SET |
 | `WM-UT-02` | Tạo với `end_time` trước `start_time` | Throw `IllegalArgumentException` |
 | `WM-UT-03` | Tạo với `total_slots = 0` | Throw `ConstraintViolationException` |
-| `WM-UT-04` | Xóa workshop có đăng ký `SUCCESS` | Throw `ConflictException` (409) |
-| `WM-UT-05` | Xóa workshop không có đăng ký | DELETE DB, DEL Redis key |
-| `WM-UT-06` | Cập nhật `total_slots` khi đã có đăng ký | Throw `ConflictException` |
+| `WM-UT-04` | Xóa workshop không ở trạng thái `DRAFT` | Throw `ConflictException` (409) — "Only DRAFT workshops can be deleted" |
+| `WM-UT-05` | Xóa workshop ở trạng thái `DRAFT` | DELETE DB, DEL Redis key |
+| `WM-UT-06` | Cập nhật `total_slots` nhỏ hơn số lượng SUCCESS | Throw `ConflictException` |
+| `WM-UT-12` | Cập nhật `total_slots` hợp lệ khi đã có SUCCESS | Update thành công, tính toán lại `remaining_slots` theo delta |
 | `WM-UT-07` | Lấy chi tiết workshop không tồn tại | Throw `ResourceNotFoundException` (404) |
+| `WM-UT-08` | Hủy workshop ở trạng thái `PUBLISHED` có đăng ký SUCCESS/PENDING | Bulk-cancel registrations, giữ nguyên COMPLETED payments, xóa Redis key |
+| `WM-UT-09` | Hủy workshop đã `COMPLETED` | Throw `IllegalArgumentException` (400) |
+| `WM-UT-10` | Hủy workshop đã `CANCELLED` | Throw `IllegalArgumentException` (400) |
+| `WM-UT-11` | Hủy workshop ở trạng thái `DRAFT` | Throw `IllegalArgumentException` (400) — "Cannot cancel a DRAFT workshop" |
 
 ### Integration Tests (Controller Layer)
 
@@ -348,9 +370,12 @@ public record WorkshopRequest(
 | `WM-IT-03` | `POST /api/workshops` | Thiếu `title` | `400` |
 | `WM-IT-04` | `GET /api/workshops` | Không có JWT | `401` |
 | `WM-IT-08` | `GET /api/workshops` | Admin JWT | `200` |
-| `WM-IT-05` | `DELETE /api/workshops/{id}` | Admin, có đăng ký SUCCESS | `409` |
+| `WM-IT-05` | `DELETE /api/workshops/{id}` | Admin, workshop không phải DRAFT | `409` |
 | `WM-IT-06` | `GET /api/workshops/{id}` | ID không tồn tại | `404` |
 | `WM-IT-07` | `GET /api/workshops/{id}/stats` | Admin JWT, ID hợp lệ | `200` |
+| `WM-IT-09` | `PUT /api/workshops/{id}/cancel` | Admin, workshop PUBLISHED có SUCCESS regs | `200` — regs bị cancel cascade |
+| `WM-IT-10` | `PUT /api/workshops/{id}/cancel` | Admin, workshop đã CANCELLED | `400` |
+| `WM-IT-11` | `PUT /api/workshops/{id}/cancel` | Admin, workshop đang ở DRAFT | `400` — "Cannot cancel a DRAFT workshop" |
 
 ---
 
@@ -363,4 +388,4 @@ public record WorkshopRequest(
 | Redis running | **Blocking** | Cần để set/get slots |
 | Feature: Auth | **Blocking** | Cần JWT + RBAC cho write endpoints |
 | Feature: AI Summary | **Non-blocking** | Xem spec `ai-summary.md` — cập nhật `description` bất đồng bộ |
-| Feature: Registration | Downstream | Đọc `workshop:slots:{id}` do feature này init |
+| Feature: Registration | Downstream | Đọc `workshop:{id}:slots` do feature này init |

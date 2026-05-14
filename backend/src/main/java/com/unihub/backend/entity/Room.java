@@ -3,13 +3,6 @@ package com.unihub.backend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
 @Entity
 @Table(name = "rooms")
 @Getter
@@ -26,7 +19,7 @@ public class Room {
     private String name;
 
     @Column(name = "layout_map_url", length = 1024)
-    private String LayoutMapUrl;
+    private String layoutMapUrl;
 
     @Column(nullable = false)
     private Integer capacity;
