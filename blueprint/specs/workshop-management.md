@@ -88,11 +88,13 @@ CREATE TABLE workshops (
 
 1. Client gửi `PUT /api/workshops/{id}` với JWT role `ADMIN`.
 2. Nếu `id` không tồn tại → trả `404`.
-3. Cho phép cập nhật: `title`, `description`, `room_id`, `speaker`, `status`, `total_slots` (nếu chưa có đăng ký), `price`, `start_time`, `end_time`, `registration_start_time`, `registration_end_time`.
-4. **Không cho phép** thay đổi `total_slots` nếu đã có bản ghi trong bảng `registrations` với `workshop_id` này.
+3. Cho phép cập nhật: `title`, `description`, `room_id`, `speaker`, `status`, `total_slots`, `price`, `start_time`, `end_time`, `registration_start_time`, `registration_end_time`.
+4. **Cho phép** thay đổi `total_slots` ngay cả khi đã có đăng ký, miễn là giá trị mới không nhỏ hơn số lượng sinh viên đã đăng ký thành công (`SUCCESS`).
 5. Khi cập nhật `total_slots` hoặc `room_id`, phải đảm bảo `total_slots <= rooms.capacity`.
-6. Nếu vi phạm rule trên → trả `409 Conflict`.
-6. Trả về `200 OK` kèm workshop đã cập nhật.
+6. Nếu vi phạm rule trên (ví dụ: `total_slots` vượt quá sức chứa phòng hoặc nhỏ hơn số người đã đăng ký thành công) → trả `409 Conflict`.
+   - **Ràng buộc quan trọng:** Khi cập nhật, `total_slots` không được nhỏ hơn số lượng sinh viên đã đăng ký thành công (`status = SUCCESS`).
+   - Tương tự, không được đổi sang phòng có sức chứa (`capacity`) nhỏ hơn số lượng sinh viên đã đăng ký thành công.
+7. Trả về `200 OK` kèm workshop đã cập nhật.
 
 ### 5. Hủy workshop (Admin)
 
@@ -224,7 +226,8 @@ CREATE TABLE workshops (
 | `POST /api/workshops` — `registration_end_time` sau `start_time - 1 day` | `400` | Service throw `IllegalArgumentException` |
 | `POST /api/workshops` — `room_id` không tồn tại | `404` | Service throw `ResourceNotFoundException` |
 | `POST /api/workshops` — Student JWT | `403` | Spring Security chặn |
-| `PUT /api/workshops/{id}` — Thay đổi `total_slots` khi đã có đăng ký | `409` | Service throw `ConflictException` |
+| `PUT /api/workshops/{id}` — Thay đổi `total_slots` nhỏ hơn số lượng đã đăng ký SUCCESS | `409` | Service throw `ConflictException` |
+| `PUT /api/workshops/{id}` — Đổi sang phòng có `capacity` nhỏ hơn số lượng đã đăng ký SUCCESS | `409` | Service throw `ConflictException` (do `total_slots` phải >= SUCCESS và `total_slots` <= `capacity`) |
 | `PUT /api/workshops/{id}/cancel` — Workshop ở trạng thái `DRAFT` | `400` | Service throw `IllegalArgumentException` — "Cannot cancel a DRAFT workshop. Use DELETE to remove it instead." |
 | `PUT /api/workshops/{id}/cancel` — Workshop đã `COMPLETED` hoặc `CANCELLED` | `400` | Service throw `IllegalArgumentException` |
 | `DELETE /api/workshops/{id}` — Workshop không ở trạng thái `DRAFT` | `409` | Service throw `ConflictException` — "Only DRAFT workshops can be deleted" |
@@ -350,7 +353,8 @@ public record WorkshopRequest(
 | `WM-UT-03` | Tạo với `total_slots = 0` | Throw `ConstraintViolationException` |
 | `WM-UT-04` | Xóa workshop không ở trạng thái `DRAFT` | Throw `ConflictException` (409) — "Only DRAFT workshops can be deleted" |
 | `WM-UT-05` | Xóa workshop ở trạng thái `DRAFT` | DELETE DB, DEL Redis key |
-| `WM-UT-06` | Cập nhật `total_slots` khi đã có đăng ký | Throw `ConflictException` |
+| `WM-UT-06` | Cập nhật `total_slots` nhỏ hơn số lượng SUCCESS | Throw `ConflictException` |
+| `WM-UT-12` | Cập nhật `total_slots` hợp lệ khi đã có SUCCESS | Update thành công, tính toán lại `remaining_slots` theo delta |
 | `WM-UT-07` | Lấy chi tiết workshop không tồn tại | Throw `ResourceNotFoundException` (404) |
 | `WM-UT-08` | Hủy workshop ở trạng thái `PUBLISHED` có đăng ký SUCCESS/PENDING | Bulk-cancel registrations, giữ nguyên COMPLETED payments, xóa Redis key |
 | `WM-UT-09` | Hủy workshop đã `COMPLETED` | Throw `IllegalArgumentException` (400) |

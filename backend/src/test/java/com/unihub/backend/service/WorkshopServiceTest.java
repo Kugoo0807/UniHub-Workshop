@@ -8,6 +8,7 @@ import com.unihub.backend.entity.Workshop;
 import com.unihub.backend.exception.ConflictException;
 import com.unihub.backend.exception.ResourceNotFoundException;
 import com.unihub.backend.repository.RegistrationRepository;
+import com.unihub.backend.repository.PaymentRepository;
 import com.unihub.backend.repository.RoomRepository;
 import com.unihub.backend.repository.WorkshopRepository;
 import jakarta.validation.ConstraintViolation;
@@ -42,10 +43,13 @@ class WorkshopServiceTest {
     private WorkshopRepository workshopRepository;
 
     @Mock
-    private RoomRepository roomRepository;
+    private RegistrationRepository registrationRepository;
 
     @Mock
-    private RegistrationRepository registrationRepository;
+    private PaymentRepository paymentRepository;
+
+    @Mock
+    private RoomRepository roomRepository;
 
     @Mock
     private SeatLockingService seatLockingService;
@@ -282,10 +286,14 @@ class WorkshopServiceTest {
         WorkshopRequest request = new WorkshopRequest(
                 "Late Reg End", null, 1L, "Speaker A",
                 30, 0L,
-                LocalDateTime.of(2026, 5, 10, 8, 0),  // Start: 10th
+                LocalDateTime.of(2026, 5, 10, 8, 0),  // Start: 10th 08:00
                 LocalDateTime.of(2026, 5, 10, 12, 0),
                 LocalDateTime.of(2026, 5, 5, 8, 0),
-                LocalDateTime.of(2026, 5, 9, 23, 0)); // End: 9th 23:00 (less than 24h before 10th 08:00)
+                LocalDateTime.of(2026, 5, 9, 23, 0)); // End: 9th 23:00 → only 9h before start, NOT 24h
+
+        // Mock save to avoid NPE masking the real exception (validation must throw BEFORE save)
+        when(workshopRepository.save(any(Workshop.class)))
+                .thenAnswer(i -> i.getArgument(0));
 
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
@@ -398,29 +406,30 @@ class WorkshopServiceTest {
     // ──────────── G8/G9: Cancel workshop ────────────
 
     @Test
-    void cancelWorkshop_draftStatus_cancelledSuccessfully() {
-        Workshop existing = baseWorkshop(1L);
-        existing.setStatus("DRAFT");
-        when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
-        when(workshopRepository.save(any(Workshop.class))).thenReturn(existing);
+    void cancelWorkshop_publishedStatus_cancelledSuccessfully() {
+        Workshop workshop = baseWorkshop(1L);
+        workshop.setStatus("PUBLISHED");
+        workshop.setPrice(100L);
+
+        when(workshopRepository.findById(1L)).thenReturn(Optional.of(workshop));
+        when(registrationRepository.bulkCancelByWorkshopId(eq(1L), anyList())).thenReturn(5);
+        when(paymentRepository.countCompletedByWorkshopId(1L)).thenReturn(0L);
 
         workshopService.cancelWorkshop(1L);
 
-        assertEquals("CANCELLED", existing.getStatus());
-        verify(workshopRepository).save(existing);
+        assertEquals("CANCELLED", workshop.getStatus());
+        verify(workshopRepository).save(workshop);
+        verify(registrationRepository).bulkCancelByWorkshopId(eq(1L), anyList());
         verify(seatLockingService).removeSlots("1");
     }
 
     @Test
-    void cancelWorkshop_publishedStatus_cancelledSuccessfully() {
-        Workshop existing = baseWorkshop(1L);
-        existing.setStatus("PUBLISHED");
-        when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
-        when(workshopRepository.save(any(Workshop.class))).thenReturn(existing);
+    void cancelWorkshop_draftStatus_throwsIllegalArgument() {
+        Workshop workshop = baseWorkshop(1L);
+        workshop.setStatus("DRAFT");
+        when(workshopRepository.findById(1L)).thenReturn(Optional.of(workshop));
 
-        workshopService.cancelWorkshop(1L);
-
-        assertEquals("CANCELLED", existing.getStatus());
+        assertThrows(IllegalArgumentException.class, () -> workshopService.cancelWorkshop(1L));
     }
 
     @Test
@@ -436,53 +445,32 @@ class WorkshopServiceTest {
     }
 
     @Test
-    void cancelWorkshop_completed_throwsIllegalArgument() {
-        Workshop existing = baseWorkshop(1L);
-        existing.setStatus("COMPLETED");
-        when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
+    void cancelWorkshop_completedStatus_throwsIllegalArgument() {
+        Workshop workshop = baseWorkshop(1L);
+        workshop.setStatus("COMPLETED");
 
-        assertThrows(IllegalArgumentException.class,
-                () -> workshopService.cancelWorkshop(1L));
+        when(workshopRepository.findById(1L)).thenReturn(Optional.of(workshop));
+
+        assertThrows(IllegalArgumentException.class, () -> workshopService.cancelWorkshop(1L));
     }
 
     @Test
-    void cancelWorkshop_withSuccessfulRegistrations_throwsConflict() {
-        Workshop existing = baseWorkshop(1L);
-        existing.setStatus("PUBLISHED");
-        when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
-        when(registrationRepository.existsByWorkshopIdAndStatus(1L, "SUCCESS")).thenReturn(true);
+    void cancelWorkshop_withCompletedPayments_succeedsAndLogsWarning() {
+        Workshop workshop = baseWorkshop(1L);
+        workshop.setStatus("PUBLISHED");
+        workshop.setPrice(100L);
 
-        ConflictException ex = assertThrows(
-                ConflictException.class,
-                () -> workshopService.cancelWorkshop(1L));
-        assertTrue(ex.getMessage().contains("Cannot cancel workshop"));
-        verify(workshopRepository, never()).save(any(Workshop.class));
+        when(workshopRepository.findById(1L)).thenReturn(Optional.of(workshop));
+        when(paymentRepository.countCompletedByWorkshopId(1L)).thenReturn(5L);
+
+        // Should not throw exception anymore
+        workshopService.cancelWorkshop(1L);
+
+        assertEquals("CANCELLED", workshop.getStatus());
+        verify(workshopRepository).save(workshop);
     }
 
     // ──────────── WM-UT-06: Update total_slots with registrations ────────────
-
-    @Test
-    void updateWorkshop_changeTotalSlotsWithRegistrations_throwsConflict() {
-        Workshop existing = baseWorkshop(1L);
-        existing.setTotalSlots(60);
-
-        WorkshopRequest request = new WorkshopRequest(
-                "Updated Title", null, 1L, "Speaker A",
-                100, 0L,
-                LocalDateTime.of(2026, 5, 10, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 12, 0),
-                LocalDateTime.of(2026, 5, 5, 8, 0),
-                LocalDateTime.of(2026, 5, 9, 7, 0));
-
-        when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(existing));
-        when(registrationRepository.existsByWorkshopId(1L)).thenReturn(true);
-
-        ConflictException ex = assertThrows(
-                ConflictException.class,
-                () -> workshopService.updateWorkshop(1L, request));
-        assertTrue(ex.getMessage().contains("Cannot change total_slots"));
-        verify(workshopRepository, never()).save(any(Workshop.class));
-    }
 
     @Test
     void updateWorkshop_changeTotalSlotsWithoutRegistrations_succeeds() {
@@ -498,8 +486,9 @@ class WorkshopServiceTest {
                 LocalDateTime.of(2026, 5, 9, 7, 0));
 
         when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(existing));
-        when(registrationRepository.existsByWorkshopId(1L)).thenReturn(false);
-        when(workshopRepository.save(any(Workshop.class))).thenReturn(existing);
+        when(registrationRepository.countByWorkshopIdAndStatus(1L, "SUCCESS")).thenReturn(0L);
+        when(workshopRepository.save(any(Workshop.class))).thenAnswer(i -> i.getArgument(0));
+        when(seatLockingService.getRemainingSlots(anyString())).thenReturn(-1);
 
         TransactionSynchronizationManager.initSynchronization();
         try {
@@ -513,25 +502,54 @@ class WorkshopServiceTest {
     }
 
     @Test
-    void updateWorkshop_sameTotalSlotsWithRegistrations_succeeds() {
+    void updateWorkshop_reduceTotalSlotsButAboveSuccessfulCount_succeeds() {
         Workshop existing = baseWorkshop(1L);
         existing.setTotalSlots(60);
+        existing.setRemainingSlots(10); // 50 seats taken (SUCCESS + PENDING)
 
         WorkshopRequest request = new WorkshopRequest(
-                "Updated Title Only", null, 1L, "Speaker A",
-                60, 0L,
-                LocalDateTime.of(2026, 5, 10, 8, 0),
-                LocalDateTime.of(2026, 5, 10, 12, 0),
-                LocalDateTime.of(2026, 5, 5, 8, 0),
-                LocalDateTime.of(2026, 5, 9, 7, 0));
+                existing.getTitle(), existing.getDescription(), 1L, existing.getSpeaker(),
+                55, existing.getPrice(),
+                existing.getStartTime(), existing.getEndTime(),
+                existing.getRegistrationStartTime(), existing.getRegistrationEndTime());
 
         when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(existing));
-        when(workshopRepository.save(any(Workshop.class))).thenReturn(existing);
+        when(registrationRepository.countByWorkshopIdAndStatus(1L, "SUCCESS")).thenReturn(40L);
+        when(workshopRepository.save(any(Workshop.class))).thenAnswer(i -> i.getArguments()[0]);
+        // Mock Redis to return -1 so it falls back to the updated DB entity value
+        when(seatLockingService.getRemainingSlots(anyString())).thenReturn(-1);
 
-        workshopService.updateWorkshop(1L, request);
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            WorkshopResponse response = workshopService.updateWorkshop(1L, request);
+            assertEquals(55, response.getTotalSlots());
+            // Delta = 55 - 60 = -5. Old remaining = 10. New remaining = 10 + (-5) = 5
+            assertEquals(5, response.getRemainingSlots());
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
 
-        verify(workshopRepository).save(existing);
-        assertEquals("Updated Title Only", existing.getTitle());
+    @Test
+    void updateWorkshop_reduceTotalSlotsBelowSuccessfulCount_throwsConflict() {
+        Workshop existing = baseWorkshop(1L);
+        WorkshopRequest request = new WorkshopRequest(
+                existing.getTitle(), existing.getDescription(), 1L, existing.getSpeaker(),
+                30, existing.getPrice(),
+                existing.getStartTime(), existing.getEndTime(),
+                existing.getRegistrationStartTime(), existing.getRegistrationEndTime());
+
+        when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(existing));
+        // Mock 40 successful registrations, trying to reduce slots to 30
+        when(registrationRepository.countByWorkshopIdAndStatus(1L, "SUCCESS")).thenReturn(40L);
+
+        // ConflictException is thrown before reaching TransactionSynchronizationManager
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            assertThrows(ConflictException.class, () -> workshopService.updateWorkshop(1L, request));
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
     }
 
     @Test
@@ -678,30 +696,40 @@ class WorkshopServiceTest {
 
     @Test
     void updateWorkshop_validFieldsUpdated_persists() {
-        Workshop existing = baseWorkshop(1L);
-        existing.setTotalSlots(60);
-
+        Workshop existing = baseWorkshop(1L); // totalSlots=60, remainingSlots=60
+        Room room = existing.getRoom();
         WorkshopRequest request = new WorkshopRequest(
-                "New Title", "New Description", 1L, "New Speaker",
-                60, 50000L,
-                LocalDateTime.of(2026, 6, 1, 9, 0),
-                LocalDateTime.of(2026, 6, 1, 17, 0),
-                LocalDateTime.of(2026, 5, 25, 8, 0),
-                LocalDateTime.of(2026, 5, 31, 8, 30));
+                "New Title", "New Desc", 1L, "New Speaker",
+                100, 50L,
+                LocalDateTime.of(2026, 5, 20, 9, 0),
+                LocalDateTime.of(2026, 5, 20, 11, 0),
+                LocalDateTime.of(2026, 5, 15, 8, 0),
+                LocalDateTime.of(2026, 5, 19, 8, 30));
 
         when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(existing));
-        when(workshopRepository.save(any(Workshop.class))).thenReturn(existing);
+        when(registrationRepository.countByWorkshopIdAndStatus(1L, "SUCCESS")).thenReturn(0L);
+        when(workshopRepository.save(any(Workshop.class))).thenAnswer(i -> i.getArgument(0));
+        // Redis returns -1 → fallback to DB value
+        when(seatLockingService.getRemainingSlots(anyString())).thenReturn(-1);
 
-        workshopService.updateWorkshop(1L, request);
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            workshopService.updateWorkshop(1L, request);
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
 
+        // Verify entity mutations (assertions on the mutable entity, not the response)
         assertEquals("New Title", existing.getTitle());
-        assertEquals("New Description", existing.getDescription());
+        assertEquals("New Desc", existing.getDescription());
         assertEquals("New Speaker", existing.getSpeaker());
-        // G21/Q5: price is Long — assert Long value, not BigDecimal
-        assertEquals(50000L, existing.getPrice());
-        assertEquals(LocalDateTime.of(2026, 6, 1, 9, 0), existing.getStartTime());
-        assertEquals(LocalDateTime.of(2026, 6, 1, 17, 0), existing.getEndTime());
-        assertSame(defaultRoom, existing.getRoom());
+        assertEquals(50L, existing.getPrice());
+        assertEquals(100, existing.getTotalSlots());
+        // delta = 100 - 60 = +40, old remaining = 60, new remaining = 100
+        assertEquals(100, existing.getRemainingSlots());
+        assertEquals(LocalDateTime.of(2026, 5, 20, 9, 0), existing.getStartTime());
+        assertEquals(LocalDateTime.of(2026, 5, 20, 11, 0), existing.getEndTime());
+        assertSame(room, existing.getRoom());
     }
 
     // ──────────── Test Helpers ────────────

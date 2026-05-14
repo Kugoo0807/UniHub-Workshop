@@ -129,14 +129,14 @@ public class WorkshopService {
         validateBusinessRules(request, room);
 
         int oldTotalSlots = workshop.getTotalSlots();
+        int currentRemainingSlots = getAccurateRemainingSlots(workshop);
 
-        // 3. Check total_slots change restriction
-        if (!workshop.getTotalSlots().equals(request.totalSlots())) {
-            if (registrationRepository.existsByWorkshopId(id)) {
-                throw new ConflictException(
-                        "Cannot change total_slots because registrations already exist for this workshop");
-            }
-            workshop.setRemainingSlots(request.totalSlots());
+        // 3. Check total_slots and room capacity against successful registrations
+        long successfulCount = registrationRepository.countByWorkshopIdAndStatus(id, "SUCCESS");
+        if (request.totalSlots() < successfulCount) {
+            throw new ConflictException(
+                    "Cannot set total_slots to " + request.totalSlots() + 
+                    " because there are already " + successfulCount + " successful registrations.");
         }
 
         // 4. Update all fields
@@ -145,6 +145,11 @@ public class WorkshopService {
         workshop.setRoom(room);
         workshop.setSpeaker(request.speaker());
         workshop.setTotalSlots(request.totalSlots());
+        
+        // Adjust remaining slots based on the delta
+        int delta = request.totalSlots() - oldTotalSlots;
+        workshop.setRemainingSlots(currentRemainingSlots + delta);
+        
         workshop.setPrice(request.price() != null ? request.price() : 0L);
         workshop.setStartTime(request.startTime());
         workshop.setEndTime(request.endTime());
@@ -342,7 +347,17 @@ public class WorkshopService {
                     "registration_start_time must be before start_time");
         }
 
-        // 5. total_slots <= room.capacity (G6)
+        // 5. registration_end_time must be at least 1 day before start_time (G5b)
+        if (request.registrationEndTime() != null && request.startTime() != null) {
+            long hoursBetween = java.time.Duration.between(
+                    request.registrationEndTime(), request.startTime()).toHours();
+            if (hoursBetween < 24) {
+                throw new IllegalArgumentException(
+                        "registration_end_time must be at least 1 day before start_time");
+            }
+        }
+
+        // 6. total_slots <= room.capacity (G6)
         if (request.totalSlots() > room.getCapacity()) {
             throw new ConflictException(
                     "total_slots (" + request.totalSlots() + ") exceeds room capacity ("
@@ -399,6 +414,7 @@ public class WorkshopService {
                 .endTime(w.getEndTime())
                 .registrationStartTime(w.getRegistrationStartTime())
                 .registrationEndTime(w.getRegistrationEndTime())
+                .successfulCount(registrationRepository.countByWorkshopIdAndStatus(w.getId(), "SUCCESS"))
                 .build();
     }
 

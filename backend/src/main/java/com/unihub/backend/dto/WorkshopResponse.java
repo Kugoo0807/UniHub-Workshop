@@ -60,4 +60,7 @@ public class WorkshopResponse {
 
     @Schema(description = "Registration end time")
     private LocalDateTime registrationEndTime;
+
+    @Schema(description = "Number of students successfully registered", example = "25")
+    private Long successfulCount;
 }

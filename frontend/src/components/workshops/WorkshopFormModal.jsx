@@ -112,6 +112,12 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
             return;
         }
 
+        // New Constraint: Cannot reduce slots below existing successful registrations
+        if (initialData && initialData.successfulCount && Number(form.totalSlots) < initialData.successfulCount) {
+            setError(`Cannot reduce slots below the number of confirmed registrations (${initialData.successfulCount})`);
+            return;
+        }
+
         // Workshop date + time validation (same-day constraint enforced by design)
         if (!form.workshopDate) { setError('Workshop date is required'); return; }
         if (!form.workshopStartTime || !form.workshopEndTime) { setError('Start time and end time are required'); return; }
@@ -249,7 +255,7 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
                             <label className="mb-1 block text-sm font-medium text-gray-700">
                                 Total Slots *
                                 {selectedRoom && Number(form.totalSlots) > selectedRoom.capacity && (
-                                    <span className="ml-1 text-red-500 text-xs">⚠ exceeds capacity</span>
+                                    <span className="ml-1 text-red-500 text-xs"> exceeds capacity</span>
                                 )}
                             </label>
                             <input
