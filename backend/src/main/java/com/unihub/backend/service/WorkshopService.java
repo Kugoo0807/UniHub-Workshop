@@ -1,5 +1,6 @@
 package com.unihub.backend.service;
 
+import com.unihub.backend.dto.PageResponse;
 import com.unihub.backend.dto.WorkshopRequest;
 import com.unihub.backend.dto.WorkshopResponse;
 import com.unihub.backend.dto.WorkshopStatsResponse;
@@ -13,6 +14,8 @@ import com.unihub.backend.repository.RoomRepository;
 import com.unihub.backend.repository.WorkshopRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -44,6 +47,31 @@ public class WorkshopService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    /**
+     * Paginated version of getAllWorkshops (default page size: 12).
+     *
+     * @param page 0-indexed page number
+     * @param size number of items per page (default 12)
+     */
+    public PageResponse<WorkshopResponse> getAllWorkshops(int page, int size) {
+        Page<Workshop> workshopPage = workshopRepository.findAllWithRoom(
+                PageRequest.of(page, size));
+
+        List<WorkshopResponse> content = workshopPage.getContent()
+                .stream()
+                .map(this::toResponse)
+                .toList();
+
+        return PageResponse.<WorkshopResponse>builder()
+                .content(content)
+                .page(workshopPage.getNumber())
+                .size(workshopPage.getSize())
+                .totalElements(workshopPage.getTotalElements())
+                .totalPages(workshopPage.getTotalPages())
+                .last(workshopPage.isLast())
+                .build();
     }
 
     public List<WorkshopResponse> getPublishedWorkshops() {

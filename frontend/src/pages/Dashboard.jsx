@@ -55,6 +55,12 @@ const Dashboard = () => {
     const [cancelConfirm, setCancelConfirm] = useState(null);
     const [statsData, setStatsData] = useState(null);
 
+    // Pagination state
+    const PAGE_SIZE = 12;
+    const [currentPage, setCurrentPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+    const [totalElements, setTotalElements] = useState(0);
+
     // AI Summary State
     const [aiUploadOpen, setAiUploadOpen] = useState(false);
     const [aiWorkshop, setAiWorkshop] = useState(null);
@@ -72,20 +78,24 @@ const Dashboard = () => {
 
     const aiPollRef = useRef({ cancelled: false, timeoutId: null });
 
-    const fetchWorkshops = useCallback(async ({ silent = false } = {}) => {
+    const fetchWorkshops = useCallback(async ({ silent = false, page = currentPage } = {}) => {
         try {
             if (!silent) setLoading(true);
             setError('');
-            const data = await adminWorkshopService.getAll();
-            setWorkshops(data);
+            const data = await adminWorkshopService.getAll(page, PAGE_SIZE);
+            // data is the PageResponse envelope: { content, page, size, totalElements, totalPages, last }
+            setWorkshops(data.content ?? data);
+            setCurrentPage(data.page ?? page);
+            setTotalPages(data.totalPages ?? 1);
+            setTotalElements(data.totalElements ?? (data.content ?? data).length);
         } catch (err) {
             setError(err.message);
         } finally {
             if (!silent) setLoading(false);
         }
-    }, []);
+    }, [currentPage]);
 
-    useEffect(() => { fetchWorkshops(); }, [fetchWorkshops]);
+    useEffect(() => { fetchWorkshops({ page: 0 }); }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
         return () => {
@@ -97,7 +107,7 @@ const Dashboard = () => {
     }, []);
 
     // Update stats value when workshops load
-    stats[1].value = workshops.length.toString();
+    stats[1].value = totalElements.toString();
 
     const handleCreate = () => {
         setEditingWorkshop(null);
@@ -118,7 +128,7 @@ const Dashboard = () => {
                 await adminWorkshopService.create(payload);
             }
             setModalOpen(false);
-            fetchWorkshops();
+            fetchWorkshops({ page: currentPage });
         } catch (err) {
             setError(err.message);
         } finally {
@@ -130,7 +140,9 @@ const Dashboard = () => {
         try {
             await adminWorkshopService.delete(id);
             setDeleteConfirm(null);
-            fetchWorkshops();
+            // If we deleted the last item on this page, go back one page
+            const nextPage = workshops.length === 1 && currentPage > 0 ? currentPage - 1 : currentPage;
+            fetchWorkshops({ page: nextPage });
         } catch (err) {
             setError(err.message);
             setDeleteConfirm(null);
@@ -141,7 +153,7 @@ const Dashboard = () => {
         try {
             await adminWorkshopService.cancel(id);
             setCancelConfirm(null);
-            fetchWorkshops();
+            fetchWorkshops({ page: currentPage });
         } catch (err) {
             setError(err.message);
             setCancelConfirm(null);
@@ -151,7 +163,7 @@ const Dashboard = () => {
     const handlePublish = async (id) => {
         try {
             await adminWorkshopService.publish(id);
-            fetchWorkshops();
+            fetchWorkshops({ page: currentPage });
         } catch (err) {
             setError(err.message);
         }
@@ -270,7 +282,8 @@ const Dashboard = () => {
                 <div>
                     <h2 className="text-2xl font-bold text-gray-900">Workshop Management</h2>
                     <p className="mt-1 text-sm text-gray-500">
-                        {workshops.length} workshop{workshops.length !== 1 ? 's' : ''} total
+                        {totalElements} workshop{totalElements !== 1 ? 's' : ''} total
+                        {totalPages > 1 && ` · Page ${currentPage + 1} of ${totalPages}`}
                     </p>
                 </div>
                 <button
@@ -390,6 +403,72 @@ const Dashboard = () => {
                             ))}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+                <div className="mt-6 flex items-center justify-between">
+                    <p className="text-sm text-gray-500">
+                        Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, totalElements)} of {totalElements} workshops
+                    </p>
+                    <div className="flex items-center gap-1">
+                        {/* First */}
+                        <button
+                            onClick={() => fetchWorkshops({ page: 0 })}
+                            disabled={currentPage === 0}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                            title="First page"
+                        >
+                            «
+                        </button>
+                        {/* Prev */}
+                        <button
+                            onClick={() => fetchWorkshops({ page: currentPage - 1 })}
+                            disabled={currentPage === 0}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                            title="Previous page"
+                        >
+                            ‹
+                        </button>
+
+                        {/* Page numbers — show up to 5 around current */}
+                        {Array.from({ length: totalPages }, (_, i) => i)
+                            .filter(i => Math.abs(i - currentPage) <= 2)
+                            .map(i => (
+                                <button
+                                    key={i}
+                                    onClick={() => fetchWorkshops({ page: i })}
+                                    className={`flex h-8 w-8 items-center justify-center rounded-lg border text-sm font-medium transition ${
+                                        i === currentPage
+                                            ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm'
+                                            : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    {i + 1}
+                                </button>
+                            ))
+                        }
+
+                        {/* Next */}
+                        <button
+                            onClick={() => fetchWorkshops({ page: currentPage + 1 })}
+                            disabled={currentPage >= totalPages - 1}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                            title="Next page"
+                        >
+                            ›
+                        </button>
+                        {/* Last */}
+                        <button
+                            onClick={() => fetchWorkshops({ page: totalPages - 1 })}
+                            disabled={currentPage >= totalPages - 1}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                            title="Last page"
+                        >
+                            »
+                        </button>
+                    </div>
                 </div>
             )}
 

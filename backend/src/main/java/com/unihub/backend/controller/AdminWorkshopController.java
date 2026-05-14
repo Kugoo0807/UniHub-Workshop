@@ -5,6 +5,7 @@ import com.unihub.backend.dto.*;
 import com.unihub.backend.service.WorkshopService;
 import com.unihub.backend.service.WorkshopAiService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -12,6 +13,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,13 +34,20 @@ public class AdminWorkshopController {
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "List all workshops", description = "Returns all workshops. Requires ADMIN role.")
+    @Operation(
+            summary     = "List all workshops (paginated)",
+            description = "Returns a paginated list of all workshops. Default page size is 12. Requires ADMIN role."
+    )
     @SecurityRequirement(name = OpenApiConfig.BEARER_AUTH_SCHEME)
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Workshop list retrieved")
     })
-    public ResponseEntity<List<WorkshopResponse>> getAllWorkshops() {
-        return ResponseEntity.ok(workshopService.getAllWorkshops());
+    public ResponseEntity<PageResponse<WorkshopResponse>> getAllWorkshops(
+            @Parameter(description = "0-indexed page number", example = "0")
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @Parameter(description = "Number of workshops per page (max 100)", example = "12")
+            @RequestParam(defaultValue = "12") @Min(1) @Max(100) int size) {
+        return ResponseEntity.ok(workshopService.getAllWorkshops(page, size));
     }
 
     @GetMapping("/{id}")

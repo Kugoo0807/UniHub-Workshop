@@ -1,6 +1,8 @@
 package com.unihub.backend.repository;
 
 import com.unihub.backend.entity.Workshop;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -20,6 +22,16 @@ public interface WorkshopRepository extends JpaRepository<Workshop, Long> {
      */
     @Query("SELECT w FROM Workshop w JOIN FETCH w.room ORDER BY w.id ASC")
     List<Workshop> findAllWithRoom();
+
+    /**
+     * Paginated version — JOIN FETCH requires a separate countQuery to avoid
+     * HibernateQueryException with pagination + fetch joins.
+     */
+    @Query(
+        value      = "SELECT w FROM Workshop w JOIN FETCH w.room ORDER BY w.id ASC",
+        countQuery = "SELECT COUNT(w) FROM Workshop w"
+    )
+    Page<Workshop> findAllWithRoom(Pageable pageable);
 
     @Query("SELECT w FROM Workshop w JOIN FETCH w.room WHERE w.status = 'PUBLISHED' ORDER BY w.id ASC")
     List<Workshop> findAllPublishedWithRoom();
