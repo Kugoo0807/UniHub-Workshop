@@ -37,6 +37,16 @@ public interface WorkshopRepository extends JpaRepository<Workshop, Long> {
     List<Workshop> findAllPublishedWithRoom();
 
     /**
+     * Paginated version of findAllPublishedWithRoom — separate countQuery
+     * to avoid HibernateQueryException with pagination + fetch joins.
+     */
+    @Query(
+        value      = "SELECT w FROM Workshop w JOIN FETCH w.room WHERE w.status = 'PUBLISHED' ORDER BY w.id ASC",
+        countQuery = "SELECT COUNT(w) FROM Workshop w WHERE w.status = 'PUBLISHED'"
+    )
+    Page<Workshop> findAllPublishedWithRoom(Pageable pageable);
+
+    /**
      * Fetch a single workshop with its Room eagerly loaded.
      * Prevents an extra query when accessing room fields in toResponse().
      */

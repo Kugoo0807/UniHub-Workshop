@@ -90,6 +90,34 @@ public class WorkshopService {
                 .toList();
     }
 
+    /**
+     * Paginated version of getPublishedWorkshops (default page size: 12).
+     *
+     * @param userId nullable — if authenticated, includes user-specific registration info
+     * @param page   0-indexed page number
+     * @param size   number of items per page (default 12)
+     */
+    public PageResponse<WorkshopResponse> getPublishedWorkshops(Long userId, int page, int size) {
+        Map<Long, String> userRegistrationStatuses = getUserRegistrationStatuses(userId);
+
+        Page<Workshop> workshopPage = workshopRepository.findAllPublishedWithRoom(
+                PageRequest.of(page, size));
+
+        List<WorkshopResponse> content = workshopPage.getContent()
+                .stream()
+                .map(workshop -> toResponse(workshop, userRegistrationStatuses.get(workshop.getId())))
+                .toList();
+
+        return PageResponse.<WorkshopResponse>builder()
+                .content(content)
+                .page(workshopPage.getNumber())
+                .size(workshopPage.getSize())
+                .totalElements(workshopPage.getTotalElements())
+                .totalPages(workshopPage.getTotalPages())
+                .last(workshopPage.isLast())
+                .build();
+    }
+
     public WorkshopResponse getWorkshopById(Long id) {
         Workshop workshop = findWorkshopWithRoomOrThrow(id);
         return toResponse(workshop);

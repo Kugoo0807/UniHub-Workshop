@@ -4,6 +4,7 @@ import workshopService from '../services/workshopService';
 import workshopRegistrationService from '../services/workshopRegistrationService';
 import PaymentModal from '../components/workshops/PaymentModal';
 import RegistrationSuccessModal from '../components/workshops/RegistrationSuccessModal';
+import PaginationControl from '../components/common/PaginationControl';
 
 const formatDateTime = (dt) => {
     if (!dt) return '—';
@@ -78,6 +79,8 @@ const getRegisterButtonLabel = (workshop, isRegistering) => {
     return 'Register';
 };
 
+const PAGE_SIZE = 12;
+
 const WorkshopListPage = () => {
     const navigate = useNavigate();
     const [workshops, setWorkshops] = useState([]);
@@ -90,9 +93,17 @@ const WorkshopListPage = () => {
     const [registrationData, setRegistrationData] = useState(null);
     const [registrationError, setRegistrationError] = useState('');
 
-    const fetchWorkshops = async () => {
-        const data = await workshopService.getAll();
-        setWorkshops(data);
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+    const [totalElements, setTotalElements] = useState(0);
+
+    const fetchWorkshops = async (page = currentPage) => {
+        const data = await workshopService.getAll(page, PAGE_SIZE);
+        setWorkshops(data.content || []);
+        setCurrentPage(data.page);
+        setTotalPages(data.totalPages);
+        setTotalElements(data.totalElements);
     };
 
     const handleRegister = async () => {
@@ -308,6 +319,20 @@ const WorkshopListPage = () => {
                     )}
                 </div>
             )}
+
+            {/* Pagination */}
+            <PaginationControl
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalElements={totalElements}
+                pageSize={PAGE_SIZE}
+                onPageChange={(newPage) => {
+                    setCurrentPage(newPage);
+                    fetchWorkshops(newPage);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                itemLabel="workshops"
+            />
 
             {/* Workshop Detail Modal */}
             {selectedWorkshop && (

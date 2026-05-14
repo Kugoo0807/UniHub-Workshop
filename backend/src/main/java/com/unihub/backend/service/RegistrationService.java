@@ -1,6 +1,7 @@
 package com.unihub.backend.service;
 
 import com.unihub.backend.dto.IdempotencyResult;
+import com.unihub.backend.dto.PageResponse;
 import com.unihub.backend.dto.PaymentResultResponse;
 import com.unihub.backend.dto.RegistrationResponse;
 import com.unihub.backend.dto.UserRegistrationResponse;
@@ -253,6 +254,46 @@ public class RegistrationService {
                         .price(registration.getWorkshop().getPrice())
                         .build())
                 .toList();
+    }
+
+    /**
+     * Paginated version of getUserRegistrations (default page size: 12).
+     *
+     * @param userId the authenticated user's ID
+     * @param page   0-indexed page number
+     * @param size   number of items per page (default 12)
+     */
+    @Transactional(readOnly = true)
+    public PageResponse<UserRegistrationResponse> getUserRegistrations(Long userId, int page, int size) {
+        org.springframework.data.domain.Page<Registration> regPage =
+                registrationRepository.findAllByUserIdWithWorkshop(userId,
+                        org.springframework.data.domain.PageRequest.of(page, size));
+
+        List<UserRegistrationResponse> content = regPage.getContent().stream()
+                .map(registration -> UserRegistrationResponse.builder()
+                        .registrationId(registration.getId())
+                        .workshopId(registration.getWorkshop().getId())
+                        .title(registration.getWorkshop().getTitle())
+                        .status(registration.getStatus())
+                        .qrCode("SUCCESS".equals(registration.getStatus()) ? registration.getQrCode() : null)
+                        .paymentIdempotencyKey(paymentRepository.findByRegistrationId(registration.getId())
+                                .map(Payment::getIdempotencyKey)
+                                .orElse(null))
+                        .startTime(registration.getWorkshop().getStartTime())
+                        .endTime(registration.getWorkshop().getEndTime())
+                        .createdAt(registration.getCreatedAt())
+                        .price(registration.getWorkshop().getPrice())
+                        .build())
+                .toList();
+
+        return PageResponse.<UserRegistrationResponse>builder()
+                .content(content)
+                .page(regPage.getNumber())
+                .size(regPage.getSize())
+                .totalElements(regPage.getTotalElements())
+                .totalPages(regPage.getTotalPages())
+                .last(regPage.isLast())
+                .build();
     }
 
     @Transactional

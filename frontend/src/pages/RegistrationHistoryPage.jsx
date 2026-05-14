@@ -6,8 +6,10 @@ import PaymentModal from '../components/workshops/PaymentModal';
 import RegistrationHistory from '../components/homeStudent/RegistrationHistory';
 import LoadingState from '../components/homeStudent/LoadingState';
 import ErrorBanner from '../components/homeStudent/ErrorBanner';
+import PaginationControl from '../components/common/PaginationControl';
 
 const HOLD_EXPIRY_MINUTES = 10;
+const PAGE_SIZE = 12;
 
 const RegistrationHistoryPage = () => {
     const navigate = useNavigate();
@@ -18,13 +20,21 @@ const RegistrationHistoryPage = () => {
     const [paymentTarget, setPaymentTarget] = useState(null);
     const [paymentModalOpen, setPaymentModalOpen] = useState(false);
 
-    const fetchData = useCallback(async () => {
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+    const [totalElements, setTotalElements] = useState(0);
+
+    const fetchData = useCallback(async (page = 0) => {
         try {
             setLoading(true);
             setError('');
 
-            const registrations = await workshopService.getUserWorkshops();
-            setMyRegistrations(registrations || []);
+            const data = await workshopService.getUserWorkshops(page, PAGE_SIZE);
+            setMyRegistrations(data.content || []);
+            setCurrentPage(data.page);
+            setTotalPages(data.totalPages);
+            setTotalElements(data.totalElements);
         } catch (err) {
             setError('Failed to load registration history. Please try again.');
             console.error('Error fetching registrations:', err);
@@ -96,13 +106,13 @@ const RegistrationHistoryPage = () => {
 
         setPaymentModalOpen(false);
         setPaymentTarget(null);
-        await fetchData();
+        await fetchData(currentPage);
     };
 
     const handleCancelPending = async (workshopId) => {
         try {
             await workshopRegistrationService.cancelRegistration(workshopId);
-            await fetchData();
+            await fetchData(currentPage);
         } catch (err) {
             setError(err.response?.data?.message || err.message || 'Failed to cancel registration.');
         }
@@ -189,6 +199,20 @@ const RegistrationHistoryPage = () => {
                 getQrImageUrl={getQrImageUrl}
                 getStatusMeta={getStatusMeta}
                 isHoldExpired={isHoldExpired}
+            />
+
+            {/* Pagination */}
+            <PaginationControl
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalElements={totalElements}
+                pageSize={PAGE_SIZE}
+                onPageChange={(newPage) => {
+                    setCurrentPage(newPage);
+                    fetchData(newPage);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                itemLabel="registrations"
             />
 
             {paymentTarget && (

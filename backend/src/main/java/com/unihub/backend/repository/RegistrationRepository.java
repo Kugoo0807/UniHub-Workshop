@@ -7,6 +7,9 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import java.util.List;
 import java.time.LocalDateTime;
 
@@ -31,6 +34,16 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
             order by r.createdAt desc
             """)
     List<Registration> findAllByUserIdWithWorkshop(@Param("userId") Long userId);
+
+    /**
+     * Paginated version — separate countQuery to avoid
+     * HibernateQueryException with pagination + fetch joins.
+     */
+    @Query(
+        value      = "SELECT r FROM Registration r JOIN FETCH r.workshop w WHERE r.user.id = :userId ORDER BY r.createdAt DESC",
+        countQuery = "SELECT COUNT(r) FROM Registration r WHERE r.user.id = :userId"
+    )
+    Page<Registration> findAllByUserIdWithWorkshop(@Param("userId") Long userId, Pageable pageable);
 
     // Find PENDING registrations created before the cutoff time (used by cancellation job)
     List<Registration> findByStatusAndCreatedAtBefore(String status, LocalDateTime cutoff);
