@@ -7,6 +7,7 @@ import com.unihub.backend.entity.Room;
 import com.unihub.backend.entity.Workshop;
 import com.unihub.backend.exception.ConflictException;
 import com.unihub.backend.exception.ResourceNotFoundException;
+import com.unihub.backend.repository.PaymentRepository;
 import com.unihub.backend.repository.RegistrationRepository;
 import com.unihub.backend.repository.RoomRepository;
 import com.unihub.backend.repository.WorkshopRepository;
@@ -33,6 +34,7 @@ public class WorkshopService {
     private final WorkshopRepository workshopRepository;
     private final RoomRepository roomRepository;
     private final RegistrationRepository registrationRepository;
+    private final PaymentRepository paymentRepository;
     private final SeatLockingService seatLockingService;
 
     // ────────────── Admin ──────────────
@@ -110,7 +112,8 @@ public class WorkshopService {
         // 4. Initialize Redis slot counter with TTL
         long ttlSeconds = computeSlotTtl(saved);
         seatLockingService.initSlots(String.valueOf(saved.getId()), saved.getTotalSlots(), ttlSeconds);
-        log.info("Initialized Redis slots for workshop {}: total={}, TTL={}s", saved.getId(), saved.getTotalSlots(), ttlSeconds);
+        log.info("Initialized Redis slots for workshop {}: total={}, TTL={}s", saved.getId(), saved.getTotalSlots(),
+                ttlSeconds);
 
         return toResponse(saved);
     }
@@ -202,29 +205,67 @@ public class WorkshopService {
 
     /**
      * Cancel a workshop (G8/G9).
-     * Sets status to CANCELLED and removes Redis slots to block in-flight registrations.
+     *
+     * <p>
+     * Luồng hủy:
+     * <ol>
+     * <li>Only allow cancelling workshops in DRAFT or PUBLISHED state.</li>
+     * <li>Update {@code status = CANCELLED} in the workshops table.</li>
+     * <li>Find all registrations for the workshop in SUCCESS or PENDING
+     * state and update them to CANCELLED (bulk update).</li>
+     * <li>Keep COMPLETED status payments for refund reconciliation — do not
+     * update the payments table.</li>
+     * <li>Delete Redis key {@code workshop:{id}:slots} to absolutely block new
+     * registrations that are in-flight.</li>
+     * <li>@TODO (Notification Service): Send refund confirmation notification
+     * to all registrants with COMPLETED payment when the workshop has a fee.</li>
+     * </ol>
      */
     @Transactional
     public void cancelWorkshop(Long id) {
         Workshop workshop = findWorkshopOrThrow(id);
 
         String currentStatus = workshop.getStatus();
-        if ("COMPLETED".equals(currentStatus) || "CANCELLED".equals(currentStatus)) {
+        if (!"PUBLISHED".equals(currentStatus)) {
+            if ("DRAFT".equals(currentStatus)) {
+                throw new IllegalArgumentException(
+                        "Cannot cancel a DRAFT workshop. Use DELETE to remove it instead.");
+            }
             throw new IllegalArgumentException(
                     "Cannot cancel a workshop that is already " + currentStatus);
         }
 
-        // Prevent cancelling if there are successful registrations
-        if (registrationRepository.existsByWorkshopIdAndStatus(id, "SUCCESS")) {
-            throw new ConflictException("Cannot cancel workshop with successful registrations");
-        }
-
+        // Step 1: Update status workshop → CANCELLED
         workshop.setStatus("CANCELLED");
         workshopRepository.save(workshop);
+        log.info("Workshop {}: status set to CANCELLED.", id);
 
-        // Remove Redis key to block any in-flight registrations
+        // Step 2: Bulk-cancel registrations in SUCCESS or PENDING
+        int cancelledCount = registrationRepository.bulkCancelByWorkshopId(
+                id, List.of("SUCCESS", "PENDING"));
+        log.info("Workshop {}: {} registration(s) bulk-cancelled (SUCCESS/PENDING → CANCELLED).",
+                id, cancelledCount);
+
+        // Step 3: Keep COMPLETED payments — just count to log/notify
+        // (don't update payments table — to keep records for refund)
+        long paidCount = paymentRepository.countCompletedByWorkshopId(id);
+        log.info("Workshop {}: {} COMPLETED payment(s) preserved for refund reconciliation.",
+                id, paidCount);
+
+        // Step 4: Delete Redis key to hard-block in-flight registrations
         seatLockingService.removeSlots(String.valueOf(id));
-        log.info("Workshop {} has been cancelled. Redis slots removed.", id);
+        log.info("Workshop {}: Redis slot key removed — in-flight registrations are hard-blocked.", id);
+
+        // Step 5: @TODO (Notification Service)
+        // - If workshop has fee (price > 0) and has successful payments,
+        // send refund confirmation notification to all registrants.
+        // - Implement: notificationService.sendRefundConfirmation(workshop,
+        // paidRegistrations);
+        if (workshop.getPrice() != null && workshop.getPrice() > 0 && paidCount > 0) {
+            log.warn("[TODO] Workshop {} (price={}): {} paid registrant(s) need refund — " +
+                    "trigger refund notification via Notification Service.",
+                    id, workshop.getPrice(), paidCount);
+        }
     }
 
     public WorkshopStatsResponse getWorkshopStats(Long id) {
@@ -280,7 +321,8 @@ public class WorkshopService {
         // 1. end_time > start_time
         validateTimeRange(request.startTime(), request.endTime());
 
-        // 2. start_time and end_time must be on the same day (G24 — mandatory per design.md)
+        // 2. start_time and end_time must be on the same day (G24 — mandatory per
+        // design.md)
         if (request.startTime() != null && request.endTime() != null
                 && !request.startTime().toLocalDate().equals(request.endTime().toLocalDate())) {
             throw new IllegalArgumentException("start_time and end_time must be on the same day");
@@ -367,7 +409,8 @@ public class WorkshopService {
 
         return registrationRepository.findAllByUserIdWithWorkshop(userId)
                 .stream()
-                .filter(registration -> "PENDING".equals(registration.getStatus()) || "SUCCESS".equals(registration.getStatus()))
+                .filter(registration -> "PENDING".equals(registration.getStatus())
+                        || "SUCCESS".equals(registration.getStatus()))
                 .collect(Collectors.toMap(
                         registration -> registration.getWorkshop().getId(),
                         registration -> registration.getStatus(),
@@ -375,8 +418,10 @@ public class WorkshopService {
     }
 
     /**
-     * Get the most accurate remaining slots for a workshop, preferring Redis value if available.
-     * G19: getRemainingSlots() now returns -1 when key doesn't exist → proper fallback to DB.
+     * Get the most accurate remaining slots for a workshop, preferring Redis value
+     * if available.
+     * G19: getRemainingSlots() now returns -1 when key doesn't exist → proper
+     * fallback to DB.
      */
     private int getAccurateRemainingSlots(Workshop workshop) {
         int redisSlots = seatLockingService.getRemainingSlots(String.valueOf(workshop.getId()));

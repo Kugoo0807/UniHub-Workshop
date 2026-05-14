@@ -372,7 +372,7 @@ const Dashboard = () => {
                                                             Publish Now
                                                         </button>
                                                     )}
-                                                    {w.status !== 'CANCELLED' && w.status !== 'COMPLETED' && (
+                                                    {w.status === 'PUBLISHED' && (
                                                         <button onClick={() => { setCancelConfirm(w.id); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-red-500 hover:bg-red-50 transition">
                                                             Cancel Workshop
                                                         </button>
@@ -548,7 +548,7 @@ const Dashboard = () => {
                     <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
                         <h3 className="text-lg font-bold text-gray-900">Cancel Workshop?</h3>
                         <p className="mt-2 text-sm text-gray-500">
-                            This will set the workshop status to CANCELLED and block all new registrations.
+                            This will <strong>permanently cancel</strong> the workshop. All <strong>SUCCESS</strong> and <strong>PENDING</strong> registrations will be cancelled automatically. Completed payments will be preserved for refund reconciliation.
                         </p>
                         <div className="mt-5 flex justify-end gap-3">
                             <button

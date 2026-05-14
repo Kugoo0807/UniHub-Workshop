@@ -99,20 +99,30 @@ CREATE TABLE workshops (
 1. Client gửi `PUT /api/workshops/{id}/cancel` với JWT role `ADMIN`.
 2. Nếu `id` không tồn tại → trả `404`.
 3. Kiểm tra trạng thái hiện tại của workshop:
-   - Nếu `status` đã là `COMPLETED` hoặc `CANCELLED` → trả `400 Bad Request` (Không thể hủy một workshop đã xong hoặc đã hủy).
-4. Thực hiện Hủy:
-   - Cập nhật `status = 'CANCELLED'` trong bảng `workshops`.
-   - Các bản ghi trong `registrations` giữ nguyên (để làm lịch sử hoặc hỗ trợ hoàn tiền sau này nếu có).
-   - Xóa key Redis `workshop:{id}:slots` để chặn tuyệt đối các request đăng ký mới đang in-flight.
-   - Phải có thông báo xác nhận hoàn trả tiền đối với workshop có phí (@TODO ở tính năng hệ thống thông báo)
+   - **Chỉ workshop đang ở trạng thái `PUBLISHED` mới có thể bị hủy.**
+   - Nếu `status = DRAFT` → trả `400 Bad Request` kèm thông báo: "Cannot cancel a DRAFT workshop. Use DELETE to remove it instead."
+   - Nếu `status` là `COMPLETED` hoặc `CANCELLED` → trả `400 Bad Request`.
+4. Thực hiện Hủy **(theo thứ tự)**:
+   - **Bước 1:** Cập nhật `status = 'CANCELLED'` trong bảng `workshops`.
+   - **Bước 2:** Tìm toàn bộ các bản ghi `registrations` thuộc workshop này đang ở trạng thái `SUCCESS` hoặc `PENDING` và cập nhật thành `CANCELLED` (bulk update, một câu lệnh UPDATE duy nhất).
+   - **Bước 3:** Đối với các vé đã thanh toán (có record trong bảng `payments` là `COMPLETED`) → **giữ nguyên trạng thái ở bảng `payments`** để phục vụ đối soát hoàn tiền. Không được cập nhật bảng `payments`.
+   - **Bước 4:** Xóa key Redis `workshop:{id}:slots` để chặn tuyệt đối các request đăng ký mới đang in-flight.
+   - **Bước 5:** @TODO (Notification Service) — Nếu workshop có phí (`price > 0`) và có người đã thanh toán thành công, gửi thông báo xác nhận hoàn trả tiền tới toàn bộ registrants có `COMPLETED` payment.
 5. Trả về `200 OK` kèm thông báo đã hủy.
+
+> **Lifecycle rõ ràng:**
+> - `DRAFT` → có thể **Publish** hoặc **Delete**. Không thể Cancel.
+> - `PUBLISHED` → có thể **Cancel**. Không thể Delete.
+> - `CANCELLED` / `COMPLETED` → không thể thực hiện thêm action nào.
 
 ### 6. Xóa workshop (Admin)
 
 1. Client gửi `DELETE /api/workshops/{id}` với JWT role `ADMIN`.
 2. Nếu `id` không tồn tại → trả `404`.
-3. **Chỉ cho phép xóa (Hard Delete)** nếu workshop có `status = DRAFT`. 
-4. Nếu vi phạm (đã có người đăng ký) → trả `409 Conflict` kèm thông báo: "Chỉ được xóa Draft Workshop".
+3. **Chỉ cho phép xóa (Hard Delete)** nếu workshop có `status = DRAFT`.
+   - Workshop ở bất kỳ trạng thái nào khác (`PUBLISHED`, `CANCELLED`, `COMPLETED`) đều **không thể xóa**.
+   - Lý do: DRAFT là trạng thái chưa công bố, chưa có ai đăng ký, an toàn để xóa hoàn toàn.
+4. Nếu vi phạm → trả `409 Conflict` kèm thông báo: "Only DRAFT workshops can be deleted".
 5. Khi xóa thành công:
    - `DELETE` record trong DB.
    - `DEL workshop:{id}:slots` trên Redis.
@@ -215,7 +225,9 @@ CREATE TABLE workshops (
 | `POST /api/workshops` — `room_id` không tồn tại | `404` | Service throw `ResourceNotFoundException` |
 | `POST /api/workshops` — Student JWT | `403` | Spring Security chặn |
 | `PUT /api/workshops/{id}` — Thay đổi `total_slots` khi đã có đăng ký | `409` | Service throw `ConflictException` |
-| `DELETE /api/workshops/{id}` — Có đăng ký `status = 'SUCCESS'` | `409` | Service throw `ConflictException` |
+| `PUT /api/workshops/{id}/cancel` — Workshop ở trạng thái `DRAFT` | `400` | Service throw `IllegalArgumentException` — "Cannot cancel a DRAFT workshop. Use DELETE to remove it instead." |
+| `PUT /api/workshops/{id}/cancel` — Workshop đã `COMPLETED` hoặc `CANCELLED` | `400` | Service throw `IllegalArgumentException` |
+| `DELETE /api/workshops/{id}` — Workshop không ở trạng thái `DRAFT` | `409` | Service throw `ConflictException` — "Only DRAFT workshops can be deleted" |
 | Redis không khả dụng khi đọc `remaining_slots` | — | Fallback về cột `remaining_slots` trong DB |
 
 ---
@@ -336,10 +348,14 @@ public record WorkshopRequest(
 | `WM-UT-01` | Tạo workshop hợp lệ | INSERT DB, `remaining_slots = total_slots`, Redis SET |
 | `WM-UT-02` | Tạo với `end_time` trước `start_time` | Throw `IllegalArgumentException` |
 | `WM-UT-03` | Tạo với `total_slots = 0` | Throw `ConstraintViolationException` |
-| `WM-UT-04` | Xóa workshop có đăng ký `SUCCESS` | Throw `ConflictException` (409) |
-| `WM-UT-05` | Xóa workshop không có đăng ký | DELETE DB, DEL Redis key |
+| `WM-UT-04` | Xóa workshop không ở trạng thái `DRAFT` | Throw `ConflictException` (409) — "Only DRAFT workshops can be deleted" |
+| `WM-UT-05` | Xóa workshop ở trạng thái `DRAFT` | DELETE DB, DEL Redis key |
 | `WM-UT-06` | Cập nhật `total_slots` khi đã có đăng ký | Throw `ConflictException` |
 | `WM-UT-07` | Lấy chi tiết workshop không tồn tại | Throw `ResourceNotFoundException` (404) |
+| `WM-UT-08` | Hủy workshop ở trạng thái `PUBLISHED` có đăng ký SUCCESS/PENDING | Bulk-cancel registrations, giữ nguyên COMPLETED payments, xóa Redis key |
+| `WM-UT-09` | Hủy workshop đã `COMPLETED` | Throw `IllegalArgumentException` (400) |
+| `WM-UT-10` | Hủy workshop đã `CANCELLED` | Throw `IllegalArgumentException` (400) |
+| `WM-UT-11` | Hủy workshop ở trạng thái `DRAFT` | Throw `IllegalArgumentException` (400) — "Cannot cancel a DRAFT workshop" |
 
 ### Integration Tests (Controller Layer)
 
@@ -350,9 +366,12 @@ public record WorkshopRequest(
 | `WM-IT-03` | `POST /api/workshops` | Thiếu `title` | `400` |
 | `WM-IT-04` | `GET /api/workshops` | Không có JWT | `401` |
 | `WM-IT-08` | `GET /api/workshops` | Admin JWT | `200` |
-| `WM-IT-05` | `DELETE /api/workshops/{id}` | Admin, có đăng ký SUCCESS | `409` |
+| `WM-IT-05` | `DELETE /api/workshops/{id}` | Admin, workshop không phải DRAFT | `409` |
 | `WM-IT-06` | `GET /api/workshops/{id}` | ID không tồn tại | `404` |
 | `WM-IT-07` | `GET /api/workshops/{id}/stats` | Admin JWT, ID hợp lệ | `200` |
+| `WM-IT-09` | `PUT /api/workshops/{id}/cancel` | Admin, workshop PUBLISHED có SUCCESS regs | `200` — regs bị cancel cascade |
+| `WM-IT-10` | `PUT /api/workshops/{id}/cancel` | Admin, workshop đã CANCELLED | `400` |
+| `WM-IT-11` | `PUT /api/workshops/{id}/cancel` | Admin, workshop đang ở DRAFT | `400` — "Cannot cancel a DRAFT workshop" |
 
 ---
 
