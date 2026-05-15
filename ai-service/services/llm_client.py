@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import re
@@ -83,33 +84,59 @@ def _pick_fallback_model(preferred_model: str) -> str:
         return preferred_model
 
 
-def generate_summary(text: str) -> str:
+def generate_summary_and_speaker(text: str) -> dict:
+    """
+    Returns a dict: { "summary": str, "speaker": str | None }
+    """
     provider = os.getenv("LLM_PROVIDER", "gemini").lower()
     if provider != "gemini":
-        return f"{text[:100]}..."
+        return {"summary": f"{text[:100]}...", "speaker": None}
 
     api_key = os.getenv("LLM_API_KEY") or os.getenv("GEMINI_API_KEY")
     if not api_key:
         logger.warning("LLM_API_KEY not set. Using mock summary.")
-        return f"{text[:100]}..."
+        return {"summary": f"{text[:100]}...", "speaker": None}
 
     genai.configure(api_key=api_key)
 
     configured_model = os.getenv("LLM_MODEL", "gemini-1.5-flash")
     model_name = _normalize_model_name(configured_model)
-    
-    # Prompt chuyên nghiệp từ bản trên
+
     prompt = (
-        "Bạn là trợ lý viết tóm tắt. Hãy tóm tắt nội dung workshop sau đây trong 3-5 câu bằng tiếng Việt. "
-        "Chỉ trả về phần tóm tắt, không thêm câu mở đầu, không tiêu đề.\n\n"
+        "Bạn là trợ lý phân tích tài liệu workshop. Nhiệm vụ: đọc nội dung PDF bên dưới và trả về JSON với đúng 2 trường.\n\n"
+        "QUY TẮC CHO TỪNG TRƯỜNG:\n"
+        "1. \"summary\": Tóm tắt nội dung chính của workshop trong 3-5 câu bằng tiếng Việt.\n"
+        "   Tập trung vào chủ đề, mục tiêu và nội dung được trình bày.\n"
+        "2. \"speaker\": Tên người TRÌNH BÀY / DIỄN GIẢ chính của workshop này.\n"
+        "   - CHỈ điền nếu tài liệu RÕ RÀNG ghi nhãn người đứng ra tổ chức/thuyết trình\n"
+        "     (ví dụ label: \"Diễn giả:\", \"Speaker:\", \"Presented by:\", \"Giảng viên:\", \"Báo cáo viên:\", ...).\n"
+        "   - KHÔNG điền nếu tên người chỉ xuất hiện trong: tài liệu tham khảo, trích dẫn,\n"
+        "     ví dụ minh họa, danh sách người tham dự, hoặc lời cảm ơn.\n"
+        "   - Nếu không xác định được rõ ràng ai là diễn giả → trả về null.\n\n"
+        "Chỉ trả về JSON thuần (không markdown, không giải thích):\n"
+        "{\"summary\": \"...\", \"speaker\": \"...\" hoặc null}\n\n"
+        "NỘI DUNG TÀI LIỆU:\n"
         f"{text}"
     )
 
-    def _call_model(name: str) -> str:
-        logger.info("Generating summary using model: %s", name)
+    def _call_model(name: str) -> dict:
+        logger.info("Generating summary+speaker using model: %s", name)
         model = genai.GenerativeModel(name)
         response = model.generate_content(prompt)
-        return _strip_summary_preamble(getattr(response, "text", "") or "")
+        raw = (getattr(response, "text", "") or "").strip()
+        # Strip markdown code fences if present
+        raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.IGNORECASE)
+        raw = re.sub(r"\s*```$", "", raw)
+        try:
+            data = json.loads(raw)
+            summary = _strip_summary_preamble(str(data.get("summary") or ""))
+            speaker_val = data.get("speaker")
+            speaker = str(speaker_val).strip() if speaker_val and str(speaker_val).strip().lower() not in ("null", "none", "") else None
+            return {"summary": summary, "speaker": speaker}
+        except (json.JSONDecodeError, ValueError):
+            # Fallback: treat entire response as summary, no speaker
+            logger.warning("Could not parse JSON from LLM; falling back to raw text as summary.")
+            return {"summary": _strip_summary_preamble(raw), "speaker": None}
 
     try:
         return _call_model(model_name)
