@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/gray_50">
+
+    <!-- Toolbar -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
+        android:background="@color/indigo_600"
+        android:elevation="4dp"
+        android:gravity="center_vertical">
+
+        <!-- Logo -->
+        <ImageView
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_unihub_logo"
+            android:contentDescription="UniHub Logo"
+            android:layout_marginEnd="10dp" />
+
+        <!-- Title -->
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/workshops_title"
+            android:textColor="@color/white"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <!-- Sync button -->
+        <Button
+            android:id="@+id/btnSyncAll"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="@string/btn_sync"
+            android:textSize="13sp"
+            android:textColor="@color/white"
+            android:textStyle="bold"
+            android:background="@android:color/transparent"
+            android:minWidth="0dp"
+            android:paddingHorizontal="12dp"
+            android:stateListAnimator="@null" />
+
+        <!-- Logout button -->
+        <Button
+            android:id="@+id/btnLogout"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:text="@string/btn_logout"
+            android:textSize="13sp"
+            android:textColor="#C7D2FE"
+            android:background="@android:color/transparent"
+            android:minWidth="0dp"
+            android:paddingHorizontal="12dp"
+            android:stateListAnimator="@null" />
+    </LinearLayout>
+
+    <!-- Empty state (hidden by default) -->
+    <LinearLayout
+        android:id="@+id/emptyState"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone"
+        android:padding="32dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No workshops available"
+            android:textSize="16sp"
+            android:textColor="@color/gray_400" />
+    </LinearLayout>
+
+    <!-- Workshop list -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:padding="12dp" />
+
+</LinearLayout>
