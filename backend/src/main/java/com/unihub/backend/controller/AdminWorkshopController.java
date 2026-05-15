@@ -210,4 +210,23 @@ public class AdminWorkshopController {
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(java.util.Map.of("message", "AI summary is being processed, description will be updated soon."));
     }
+
+    @GetMapping("/{id}/attendances")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "Get workshop attendance list (paginated)",
+            description = "Returns paginated SUCCESS registrations with check-in status. " +
+                    "Checked-in students are listed first. Requires ADMIN role.")
+    @SecurityRequirement(name = OpenApiConfig.BEARER_AUTH_SCHEME)
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Attendance list retrieved"),
+            @ApiResponse(responseCode = "404", description = "Workshop not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<com.unihub.backend.dto.PageResponse<com.unihub.backend.dto.WorkshopAttendanceResponse>> getWorkshopAttendances(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "5") int size) {
+        return ResponseEntity.ok(workshopService.getWorkshopAttendances(id, page, size));
+    }
 }

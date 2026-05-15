@@ -30,6 +30,10 @@ public class Registration {
     @Column(nullable = false, length = 20)
     private String status; // PENDING, SUCCESS, CANCELLED
 
+    /** Inverse side of the CheckinRecord relationship (nullable — student may not have checked in). */
+    @OneToOne(mappedBy = "registration", fetch = FetchType.LAZY)
+    private CheckinRecord checkinRecord;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
