@@ -25,9 +25,12 @@ import com.example.mobile.util.TokenManager;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+
+import com.google.android.material.tabs.TabLayout;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -39,6 +42,8 @@ public class WorkshopListActivity extends AppCompatActivity {
     private WorkshopAdapter adapter;
     private ApiService apiService;
     private CheckinRepository repository;
+    private TabLayout tabLayout;
+    private List<WorkshopResponse> allWorkshops = new ArrayList<>();
 
     // Input format from backend (ISO-8601 without timezone)
     private static final SimpleDateFormat ISO_FORMAT =
@@ -60,6 +65,20 @@ public class WorkshopListActivity extends AppCompatActivity {
         adapter = new WorkshopAdapter();
         recyclerView.setAdapter(adapter);
 
+        tabLayout = findViewById(R.id.tabLayout);
+        tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
+            @Override
+            public void onTabSelected(TabLayout.Tab tab) {
+                filterWorkshops();
+            }
+
+            @Override
+            public void onTabUnselected(TabLayout.Tab tab) {}
+
+            @Override
+            public void onTabReselected(TabLayout.Tab tab) {}
+        });
+
         findViewById(R.id.btnLogout).setOnClickListener(v -> {
             new TokenManager(this).clearTokens();
             startActivity(new Intent(this, LoginActivity.class));
@@ -79,7 +98,8 @@ public class WorkshopListActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<PageResponse<WorkshopResponse>> call, Response<PageResponse<WorkshopResponse>> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    adapter.setWorkshops(response.body().getContent());
+                    allWorkshops = response.body().getContent();
+                    filterWorkshops();
                 } else {
                     Toast.makeText(WorkshopListActivity.this, "Failed to load workshops", Toast.LENGTH_SHORT).show();
                 }
@@ -90,6 +110,40 @@ public class WorkshopListActivity extends AppCompatActivity {
                 Toast.makeText(WorkshopListActivity.this, "Error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void filterWorkshops() {
+        if (tabLayout.getSelectedTabPosition() == 1) { // Today
+            List<WorkshopResponse> todayWorkshops = new ArrayList<>();
+            for (WorkshopResponse w : allWorkshops) {
+                if (isToday(w.getStartTime())) {
+                    todayWorkshops.add(w);
+                }
+            }
+            adapter.setWorkshops(todayWorkshops);
+            
+            // Toggle empty state visibility based on filtered list
+            findViewById(R.id.emptyState).setVisibility(todayWorkshops.isEmpty() ? View.VISIBLE : View.GONE);
+        } else { // All
+            adapter.setWorkshops(allWorkshops);
+            findViewById(R.id.emptyState).setVisibility(allWorkshops.isEmpty() ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private boolean isToday(String isoDateTime) {
+        if (isoDateTime == null || isoDateTime.isEmpty()) return false;
+        try {
+            Date date = ISO_FORMAT.parse(isoDateTime);
+            if (date == null) return false;
+            Calendar cal1 = Calendar.getInstance();
+            Calendar cal2 = Calendar.getInstance();
+            cal1.setTime(new Date());
+            cal2.setTime(date);
+            return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
+                   cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR);
+        } catch (ParseException e) {
+            return false;
+        }
     }
 
     /**

@@ -61,6 +61,25 @@
             android:stateListAnimator="@null" />
     </LinearLayout>
 
+    <!-- TabLayout for All / Today filtering -->
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/tabLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/white"
+        android:elevation="2dp">
+
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="All" />
+
+        <com.google.android.material.tabs.TabItem
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Today" />
+    </com.google.android.material.tabs.TabLayout>
+
     <!-- Empty state (hidden by default) -->
     <LinearLayout
         android:id="@+id/emptyState"
