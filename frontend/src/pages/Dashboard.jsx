@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import adminWorkshopService from '../services/adminWorkshopService';
 import { useAuth } from '../context/AuthContext';
 import WorkshopFormModal from '../components/workshops/WorkshopFormModal';
 import PaginationControl from '../components/common/PaginationControl';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const formatDateTime = (dt) => {
     if (!dt) return '—';
@@ -30,22 +32,11 @@ const statusBadge = (status) => {
     );
 };
 
-const StatCard = ({ label, value, color }) => (
-    <div className={`rounded-2xl p-6 shadow-sm text-white ${color}`}>
-        <p className="text-sm font-medium opacity-80">{label}</p>
-        <p className="mt-2 text-4xl font-bold">{value}</p>
-    </div>
-);
 
 const Dashboard = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
 
-    const stats = [
-        { label: 'Total Users', value: '—', color: 'bg-indigo-600' },
-        { label: 'Active Workshops', value: '—', color: 'bg-emerald-500' },
-        { label: 'Total Registrations', value: '—', color: 'bg-violet-500' },
-        { label: 'Pending Payments', value: '—', color: 'bg-amber-500' },
-    ];
     const [workshops, setWorkshops] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -107,8 +98,7 @@ const Dashboard = () => {
         };
     }, []);
 
-    // Update stats value when workshops load
-    stats[1].value = totalElements.toString();
+
 
     const handleCreate = () => {
         setEditingWorkshop(null);
@@ -264,18 +254,20 @@ const Dashboard = () => {
     return (
         <div className="min-h-screen bg-gray-50 p-6 mx-auto max-w-7xl">
             {/* Dashboard Header */}
-            <div className="mb-8">
-                <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="mt-1 text-gray-500">
-                    Logged in as <span className="font-medium text-indigo-600">{user?.fullName ?? 'Admin'}</span>
-                </p>
-            </div>
-
-            {/* Overview Stats */}
-            <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                {stats.map((s) => (
-                    <StatCard key={s.label} {...s} />
-                ))}
+            <div className="mb-6 flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+                    <p className="mt-1 text-gray-500">
+                        Logged in as <span className="font-medium text-indigo-600">{user?.fullName ?? 'Admin'}</span>
+                    </p>
+                </div>
+                <button
+                    onClick={() => navigate('/admin/statistics')}
+                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:from-violet-700 hover:to-indigo-700 transition-all"
+                >
+                    <span>📊</span>
+                    View Analytics
+                </button>
             </div>
 
             {/* Workshop Management Section Header */}
@@ -453,50 +445,84 @@ const Dashboard = () => {
             )}
 
             {/* Stats Modal */}
-            {statsData && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setStatsData(null)}>
-                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-                        <h3 className="text-lg font-bold text-gray-900 mb-4">Workshop Statistics</h3>
-                        <p className="text-sm text-gray-500 mb-4">{statsData.title}</p>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="rounded-xl bg-indigo-50 p-4 text-center">
-                                <p className="text-xs font-medium text-indigo-500 uppercase">Total Slots</p>
-                                <p className="mt-1 text-2xl font-bold text-indigo-700">{statsData.totalSlots}</p>
+            {statsData && (() => {
+                const fillRate = statsData.fillRate ?? 0;
+                const chartData = [
+                    { name: 'Registered', value: Number(statsData.registeredCount) || 0, fill: '#6366f1' },
+                    { name: 'Available', value: Math.max(0, statsData.totalSlots - (Number(statsData.registeredCount) || 0)), fill: '#e5e7eb' },
+                ];
+                return (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setStatsData(null)}>
+                        <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                            <h3 className="text-lg font-bold text-gray-900 mb-1">Workshop Statistics</h3>
+                            <p className="text-sm text-gray-500 mb-5 line-clamp-1">{statsData.title}</p>
+
+                            {/* Metric grid */}
+                            <div className="grid grid-cols-2 gap-3 mb-5">
+                                <div className="rounded-xl bg-indigo-50 p-4 text-center">
+                                    <p className="text-xs font-medium text-indigo-500 uppercase">Total Slots</p>
+                                    <p className="mt-1 text-2xl font-bold text-indigo-700">{statsData.totalSlots}</p>
+                                </div>
+                                <div className="rounded-xl bg-emerald-50 p-4 text-center">
+                                    <p className="text-xs font-medium text-emerald-500 uppercase">Remaining</p>
+                                    <p className="mt-1 text-2xl font-bold text-emerald-700">{statsData.remainingSlots}</p>
+                                </div>
+                                <div className="rounded-xl bg-violet-50 p-4 text-center">
+                                    <p className="text-xs font-medium text-violet-500 uppercase">Registered</p>
+                                    <p className="mt-1 text-2xl font-bold text-violet-700">{statsData.registeredCount}</p>
+                                </div>
+                                <div className="rounded-xl bg-amber-50 p-4 text-center">
+                                    <p className="text-xs font-medium text-amber-500 uppercase">Fill Rate</p>
+                                    <p className="mt-1 text-2xl font-bold text-amber-700">{fillRate}%</p>
+                                </div>
                             </div>
-                            <div className="rounded-xl bg-emerald-50 p-4 text-center">
-                                <p className="text-xs font-medium text-emerald-500 uppercase">Remaining</p>
-                                <p className="mt-1 text-2xl font-bold text-emerald-700">{statsData.remainingSlots}</p>
-                            </div>
-                            <div className="rounded-xl bg-violet-50 p-4 text-center">
-                                <p className="text-xs font-medium text-violet-500 uppercase">Registered</p>
-                                <p className="mt-1 text-2xl font-bold text-violet-700">{statsData.registeredCount}</p>
-                            </div>
-                            <div className="rounded-xl bg-amber-50 p-4 text-center">
-                                <p className="text-xs font-medium text-amber-500 uppercase">Fill Rate</p>
-                                <p className="mt-1 text-2xl font-bold text-amber-700">{statsData.fillRate}%</p>
-                            </div>
-                        </div>
-                        <div className="mt-3">
-                            <div className="h-2.5 w-full rounded-full bg-gray-200 overflow-hidden">
-                                <div
-                                    className={`h-full rounded-full transition-all ${statsData.fillRate >= 90 ? 'bg-red-500' :
-                                        statsData.fillRate >= 60 ? 'bg-amber-500' : 'bg-emerald-500'
+
+                            {/* Fill rate progress bar */}
+                            <div className="mb-4">
+                                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                                    <span>Fill Rate</span><span>{fillRate}%</span>
+                                </div>
+                                <div className="h-3 w-full rounded-full bg-gray-200 overflow-hidden">
+                                    <div
+                                        className={`h-full rounded-full transition-all duration-500 ${
+                                            fillRate >= 90 ? 'bg-gradient-to-r from-red-400 to-red-600' :
+                                            fillRate >= 60 ? 'bg-gradient-to-r from-amber-400 to-orange-500' :
+                                            'bg-gradient-to-r from-emerald-400 to-emerald-600'
                                         }`}
-                                    style={{ width: `${Math.min(statsData.fillRate, 100)}%` }}
-                                />
+                                        style={{ width: `${Math.min(fillRate, 100)}%` }}
+                                    />
+                                </div>
                             </div>
-                        </div>
-                        <div className="mt-5 flex justify-end">
-                            <button
-                                onClick={() => setStatsData(null)}
-                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-                            >
-                                Close
-                            </button>
+
+                            {/* Bar chart: registered vs remaining */}
+                            <div className="mb-4">
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Seat Distribution</p>
+                                <ResponsiveContainer width="100%" height={80}>
+                                    <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+                                        <XAxis type="number" hide />
+                                        <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 11 }} />
+                                        <Tooltip formatter={(v) => [`${v} people`, '']} />
+                                        <Bar dataKey="value" radius={[0, 6, 6, 0]}>
+                                            {chartData.map((entry, i) => (
+                                                <Cell key={i} fill={entry.fill} />
+                                            ))}
+                                        </Bar>
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+
+                            <div className="flex justify-end">
+                                <button
+                                    onClick={() => setStatsData(null)}
+                                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
 
             {/* AI Summary Upload Modal */}
             {aiUploadOpen && aiWorkshop && (

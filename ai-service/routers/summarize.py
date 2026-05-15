@@ -2,7 +2,7 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
 from services.pdf_extractor import extract_text_from_pdf
 from services.text_cleaner import clean_text
-from services.llm_client import LLMClientError, generate_summary
+from services.llm_client import LLMClientError, generate_summary_and_speaker
 import io
 
 router = APIRouter()
@@ -24,11 +24,12 @@ async def summarize_pdf(
             )
             
         cleaned_text = clean_text(raw_text)
-        summary = generate_summary(cleaned_text)
+        result = generate_summary_and_speaker(cleaned_text)
         
         return {
             "workshop_id": workshop_id,
-            "summary": summary
+            "summary": result.get("summary", ""),
+            "speaker": result.get("speaker")   # None if not found in PDF
         }
     except LLMClientError as e:
         raise HTTPException(status_code=e.status_code, detail=e.detail)
