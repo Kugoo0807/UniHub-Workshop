@@ -1,6 +1,7 @@
 package com.unihub.backend.service;
 
 import com.unihub.backend.dto.ai.AiSummaryResponse;
+import com.unihub.backend.entity.Workshop;
 import com.unihub.backend.repository.WorkshopRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +17,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -56,9 +56,26 @@ public class WorkshopAiService {
                     aiServiceUrl + "/summarize", requestEntity, AiSummaryResponse.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                String summary = response.getBody().getSummary();
-                workshopRepository.updateDescription(workshopId, summary);
-                log.info("Successfully updated description for workshop {}", workshopId);
+                AiSummaryResponse aiResp = response.getBody();
+
+                // Always update description (summary)
+                String summary = aiResp.getSummary();
+                if (summary != null && !summary.isBlank()) {
+                    workshopRepository.updateDescription(workshopId, summary);
+                    log.info("Successfully updated description for workshop {}", workshopId);
+                }
+
+                // Only update speaker if AI found one (non-null, non-blank)
+                String speaker = aiResp.getSpeaker();
+                if (speaker != null && !speaker.isBlank()) {
+                    workshopRepository.findById(workshopId).ifPresent(workshop -> {
+                        workshop.setSpeaker(speaker);
+                        workshopRepository.save(workshop);
+                        log.info("Updated speaker for workshop {} to: {}", workshopId, speaker);
+                    });
+                } else {
+                    log.info("AI did not detect a speaker in PDF for workshop {} — keeping existing value.", workshopId);
+                }
             } else {
                 log.warn("FastAPI returned non-200 status for workshop {}: {}", workshopId, response.getStatusCode());
             }

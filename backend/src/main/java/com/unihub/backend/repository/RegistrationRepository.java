@@ -63,4 +63,107 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
     int bulkCancelByWorkshopId(
             @Param("workshopId") Long workshopId,
             @Param("statuses") List<String> statuses);
+
+    // ─── Global stats queries ───────────────────────────────────────────────
+
+    /** Count all registrations by status. */
+    long countByStatus(String status);
+
+    /**
+     * Count registrations with a specific status that belong to COMPLETED workshops only.
+     * Used for participation/cancellation rate calculations scoped to past events.
+     */
+    @Query("""
+            select count(r) from Registration r
+            where r.status = :status
+              and r.workshop.status = 'COMPLETED'
+            """)
+    long countByStatusAndWorkshopCompleted(@Param("status") String status);
+
+    /**
+     * Count all registrations that belong to COMPLETED workshops only.
+     */
+    @Query("""
+            select count(r) from Registration r
+            where r.workshop.status = 'COMPLETED'
+            """)
+    long countByWorkshopCompleted();
+
+    /**
+     * Count registrations grouped by hour-of-day (0–23) using created_at.
+     * Returns Object[] { hour (Integer), count (Long) }.
+     */
+    @Query(value = """
+            SELECT EXTRACT(HOUR FROM created_at) AS hour, COUNT(id)
+            FROM registrations
+            GROUP BY hour
+            ORDER BY hour
+            """, nativeQuery = true)
+    List<Object[]> countByHourOfDay();
+
+
+    /**
+     * Speaker stats: number of workshops per speaker (non-null speakers only).
+     * Returns Object[] { speaker (String), count (Long) }.
+     */
+    @Query("""
+            select w.speaker, count(w.id)
+            from Workshop w
+            where w.speaker is not null and w.speaker <> ''
+            group by w.speaker
+            order by count(w.id) desc
+            """)
+    List<Object[]> countWorkshopsBySpeaker();
+
+    /**
+     * Room utilization: avg fill rate per room.
+     * Returns Object[] { roomName, capacity, workshopCount, avgFillRate }
+     */
+    @Query("""
+            select w.room.name, w.room.capacity, count(w.id),
+                   avg(case when w.totalSlots > 0
+                            then cast((w.totalSlots - w.remainingSlots) as double) / w.totalSlots * 100
+                            else 0.0 end)
+            from Workshop w
+            where w.status in ('PUBLISHED', 'COMPLETED', 'CANCELLED')
+            group by w.room.id, w.room.name, w.room.capacity
+            order by avg(case when w.totalSlots > 0
+                              then cast((w.totalSlots - w.remainingSlots) as double) / w.totalSlots * 100
+                              else 0.0 end) desc
+            """)
+    List<Object[]> roomUtilizationStats();
+
+    /**
+     * Fill rate per workshop (for bar chart).
+     * Returns Object[] { workshopId, title, totalSlots, successCount }
+     */
+    @Query("""
+            select w.id, w.title, w.totalSlots,
+                   (select count(r2) from Registration r2
+                    where r2.workshop.id = w.id and r2.status = 'SUCCESS')
+            from Workshop w
+            order by w.id asc
+            """)
+    List<Object[]> workshopFillRates();
+
+    // ─── Attendance queries ─────────────────────────────────────────────────
+
+    /**
+     * Fetch SUCCESS registrations for a workshop (paginated).
+     * Uses LEFT JOIN FETCH so students who have not checked in are still included.
+     * Only returns registrations with status = 'SUCCESS'.
+     */
+    @Query("""
+            select r
+            from Registration r
+            join fetch r.user u
+            left join fetch r.checkinRecord cr
+            where r.workshop.id = :workshopId
+              and r.status = 'SUCCESS'
+            order by (case when cr is not null then 1 else 0 end) desc,
+                     r.createdAt asc
+            """)
+    Page<Registration> findAttendancesByWorkshopId(
+            @Param("workshopId") Long workshopId,
+            Pageable pageable);
 }
