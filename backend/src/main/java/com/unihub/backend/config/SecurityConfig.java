@@ -64,8 +64,8 @@ public class SecurityConfig {
     public org.springframework.web.cors.CorsConfigurationSource corsConfigurationSource() {
         org.springframework.web.cors.CorsConfiguration configuration = new org.springframework.web.cors.CorsConfiguration();
 
-        // Frontend Vite (Local)
-        configuration.setAllowedOrigins(java.util.List.of(frontendUrl));
+        // Frontend Vite (Local) and Mobile App
+        configuration.setAllowedOriginPatterns(java.util.List.of(frontendUrl, "*"));
 
         // Basic method HTTP
         configuration.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
