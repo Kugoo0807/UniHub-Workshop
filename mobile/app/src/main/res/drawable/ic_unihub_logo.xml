@@ -1,0 +1,41 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="120dp"
+    android:viewportWidth="120"
+    android:viewportHeight="120">
+
+    <!-- Background circle -->
+    <path
+        android:fillColor="#4F46E5"
+        android:pathData="M60,60 m-48,0 a48,48 0,1 1,96 0 a48,48 0,1 1,-96 0" />
+
+    <!-- Inner circle (subtle ring) -->
+    <path
+        android:fillColor="#5B54E8"
+        android:pathData="M60,60 m-40,0 a40,40 0,1 1,80 0 a40,40 0,1 1,-80 0" />
+
+    <!-- Stylized "U" letter -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M38,32 L38,62 Q38,78 52,80 Q56,81 60,81 Q64,81 68,80 Q82,78 82,62 L82,32 L72,32 L72,62 Q72,70 66,72 Q63,73 60,73 Q57,73 54,72 Q48,70 48,62 L48,32 Z" />
+
+    <!-- Check badge (white border ring) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M82,76 m-15,0 a15,15 0,1 1,30 0 a15,15 0,1 1,-30 0" />
+
+    <!-- Check badge (emerald fill) -->
+    <path
+        android:fillColor="#10B981"
+        android:pathData="M82,76 m-12,0 a12,12 0,1 1,24 0 a12,12 0,1 1,-24 0" />
+
+    <!-- Checkmark -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M75,76 L80,81 L90,70"
+        android:fillColor="#00000000" />
+
+</vector>
