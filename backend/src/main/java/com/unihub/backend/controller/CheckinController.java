@@ -28,22 +28,6 @@ public class CheckinController {
 
     private final CheckinService checkinService;
 
-    @GetMapping("/workshops/{id}/attendees")
-    @PreAuthorize("hasRole('STAFF')")
-    @Operation(summary = "Get workshop attendees", description = "Returns a list of all valid attendees (SUCCESS status) for a workshop. Used by mobile app to download QR lists for offline scanning.")
-    @SecurityRequirement(name = com.unihub.backend.config.OpenApiConfig.BEARER_AUTH_SCHEME)
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "List of attendees retrieved successfully"),
-            @ApiResponse(responseCode = "401", description = "Unauthorized",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "403", description = "Forbidden (Requires STAFF role)",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "404", description = "Workshop not found",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    public ResponseEntity<List<AttendeeResponse>> getWorkshopAttendees(@PathVariable Long id) {
-        return ResponseEntity.ok(checkinService.getWorkshopAttendees(id));
-    }
 
     @PostMapping("/checkins/sync")
     @PreAuthorize("hasRole('STAFF')")

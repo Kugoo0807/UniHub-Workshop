@@ -36,6 +36,7 @@ public class WorkshopController {
     private final RegistrationService registrationService;
     private final WorkshopService workshopService;
     private final IdempotencyService idempotencyService;
+    private final com.unihub.backend.service.CheckinService checkinService;
 
     @GetMapping
     @Operation(summary = "List published workshops", description = "Returns paginated published workshops. If authenticated, user-specific registration info may be included.")
@@ -60,6 +61,23 @@ public class WorkshopController {
     })
     public ResponseEntity<WorkshopResponse> getWorkshopById(@PathVariable Long id, Authentication authentication) {
         return ResponseEntity.ok(workshopService.getPublishedWorkshopById(id, resolveUserId(authentication)));
+    }
+
+    @GetMapping("/{id}/attendees")
+    @PreAuthorize("hasRole('STAFF')")
+    @Operation(summary = "Get workshop attendees", description = "Returns a list of all valid attendees (SUCCESS status) for a workshop. Only available after registration ends.")
+    @SecurityRequirement(name = com.unihub.backend.config.OpenApiConfig.BEARER_AUTH_SCHEME)
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "List of attendees retrieved successfully"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "403", description = "Forbidden (Still in registration period or requires STAFF role)",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Workshop not found",
+                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+    })
+    public ResponseEntity<List<com.unihub.backend.dto.AttendeeResponse>> getWorkshopAttendees(@PathVariable Long id) {
+        return ResponseEntity.ok(checkinService.getWorkshopAttendees(id));
     }
 
     @GetMapping("/my-workshops")

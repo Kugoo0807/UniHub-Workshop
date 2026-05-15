@@ -29,8 +29,11 @@ public class CheckinService {
 
     @Transactional(readOnly = true)
     public List<AttendeeResponse> getWorkshopAttendees(Long workshopId) {
-        if (!workshopRepository.existsById(workshopId)) {
-            throw new ResourceNotFoundException("Workshop not found with id " + workshopId);
+        Workshop workshop = workshopRepository.findById(workshopId)
+                .orElseThrow(() -> new ResourceNotFoundException("Workshop not found with id " + workshopId));
+
+        if (workshop.getRegistrationEndTime() != null && java.time.LocalDateTime.now().isBefore(workshop.getRegistrationEndTime())) {
+            throw new com.unihub.backend.exception.ForbiddenOperationException("Cannot download attendees while registration is still open.");
         }
 
         // We only care about SUCCESS registrations for check-in
