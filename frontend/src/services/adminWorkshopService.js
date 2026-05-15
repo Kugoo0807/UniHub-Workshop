@@ -1,6 +1,7 @@
 import axiosClient from '../api/axiosClient';
 
 const adminWorkshopUrl = '/admin/workshops';
+const adminStatsUrl = '/admin/stats';
 
 const adminWorkshopService = {
     /**
@@ -73,6 +74,13 @@ const adminWorkshopService = {
      */
     publish(id) {
         return axiosClient.put(`${adminWorkshopUrl}/${id}/publish`);
+    },
+
+    /**
+     * Get global statistics across all workshops (Admin only).
+     */
+    getGlobalStats() {
+        return axiosClient.get(adminStatsUrl);
     },
 };
 
