@@ -145,4 +145,25 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
             order by w.id asc
             """)
     List<Object[]> workshopFillRates();
+
+    // ─── Attendance queries ─────────────────────────────────────────────────
+
+    /**
+     * Fetch SUCCESS registrations for a workshop (paginated).
+     * Uses LEFT JOIN FETCH so students who have not checked in are still included.
+     * Only returns registrations with status = 'SUCCESS'.
+     */
+    @Query("""
+            select r
+            from Registration r
+            join fetch r.user u
+            left join fetch r.checkinRecord cr
+            where r.workshop.id = :workshopId
+              and r.status = 'SUCCESS'
+            order by (case when cr is not null then 1 else 0 end) desc,
+                     r.createdAt asc
+            """)
+    Page<Registration> findAttendancesByWorkshopId(
+            @Param("workshopId") Long workshopId,
+            Pageable pageable);
 }
