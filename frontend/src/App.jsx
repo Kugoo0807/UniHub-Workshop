@@ -15,6 +15,7 @@ import WorkshopListPage from './pages/WorkshopListPage';
 import RegistrationHistoryPage from './pages/RegistrationHistoryPage';
 import Dashboard from './pages/Dashboard';
 import StatisticsPage from './pages/StatisticsPage';
+import RoomsPage from './pages/RoomsPage';
 import NotFoundPage from './pages/NotFoundPage';
 
 // Auto-redirect ADMIN to /admin when visiting /
@@ -54,6 +55,7 @@ const App = () => {
                             <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
                                 <Route path="/admin" element={<Dashboard />} />
                                 <Route path="/admin/statistics" element={<StatisticsPage />} />
+                                <Route path="/admin/rooms" element={<RoomsPage />} />
                             </Route>
 
                             {/* Catch-all route for undefined URLs (404 Not Found) */}
