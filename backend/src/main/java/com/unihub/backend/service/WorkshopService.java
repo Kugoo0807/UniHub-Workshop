@@ -97,7 +97,8 @@ public class WorkshopService {
     /**
      * Paginated version of getPublishedWorkshops (default page size: 12).
      *
-     * @param userId nullable — if authenticated, includes user-specific registration info
+     * @param userId nullable — if authenticated, includes user-specific
+     *               registration info
      * @param page   0-indexed page number
      * @param size   number of items per page (default 12)
      */
@@ -195,8 +196,8 @@ public class WorkshopService {
         long successfulCount = registrationRepository.countByWorkshopIdAndStatus(id, "SUCCESS");
         if (request.totalSlots() < successfulCount) {
             throw new ConflictException(
-                    "Cannot set total_slots to " + request.totalSlots() + 
-                    " because there are already " + successfulCount + " successful registrations.");
+                    "Cannot set total_slots to " + request.totalSlots() +
+                            " because there are already " + successfulCount + " successful registrations.");
         }
 
         // 4. Update all fields
@@ -205,11 +206,11 @@ public class WorkshopService {
         workshop.setRoom(room);
         workshop.setSpeaker(request.speaker());
         workshop.setTotalSlots(request.totalSlots());
-        
+
         // Adjust remaining slots based on the delta
         int delta = request.totalSlots() - oldTotalSlots;
         workshop.setRemainingSlots(currentRemainingSlots + delta);
-        
+
         workshop.setPrice(request.price() != null ? request.price() : 0L);
         workshop.setStartTime(request.startTime());
         workshop.setEndTime(request.endTime());
@@ -376,9 +377,9 @@ public class WorkshopService {
         findWorkshopOrThrow(workshopId);
 
         Pageable pageable = PageRequest.of(page, size);
-        Page<WorkshopAttendanceResponse> result =
-                registrationRepository.findAttendancesByWorkshopId(workshopId, pageable)
-                        .map(this::toAttendanceResponse);
+        Page<WorkshopAttendanceResponse> result = registrationRepository
+                .findAttendancesByWorkshopId(workshopId, pageable)
+                .map(this::toAttendanceResponse);
 
         return PageResponse.<WorkshopAttendanceResponse>builder()
                 .content(result.getContent())
