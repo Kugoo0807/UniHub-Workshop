@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import adminWorkshopService from '../services/adminWorkshopService';
 import { useAuth } from '../context/AuthContext';
 import WorkshopFormModal from '../components/workshops/WorkshopFormModal';
+import AttendanceModal from '../components/workshops/AttendanceModal';
 import PaginationControl from '../components/common/PaginationControl';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -60,6 +61,7 @@ const Dashboard = () => {
     const [aiUploading, setAiUploading] = useState(false);
     const [aiSuccessMessage, setAiSuccessMessage] = useState('');
     const [openActionId, setOpenActionId] = useState(null);
+    const [attendanceWorkshop, setAttendanceWorkshop] = useState(null);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -169,6 +171,10 @@ const Dashboard = () => {
         }
     };
 
+    const handleViewAttendances = (workshop) => {
+        setAttendanceWorkshop(workshop);
+    };
+
     const pollAiDescriptionUpdate = useCallback(async (workshopId, previousDescription) => {
         const startTime = Date.now();
         const maxWaitMs = 120_000; // Tăng lên 2 phút
@@ -252,372 +258,384 @@ const Dashboard = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 p-6 mx-auto max-w-7xl">
-            {/* Dashboard Header */}
-            <div className="mb-6 flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-                    <p className="mt-1 text-gray-500">
-                        Logged in as <span className="font-medium text-indigo-600">{user?.fullName ?? 'Admin'}</span>
-                    </p>
+        <>
+            <div className="min-h-screen bg-gray-50 p-6 mx-auto max-w-7xl">
+                {/* Dashboard Header */}
+                <div className="mb-6 flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+                        <p className="mt-1 text-gray-500">
+                            Logged in as <span className="font-medium text-indigo-600">{user?.fullName ?? 'Admin'}</span>
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => navigate('/admin/statistics')}
+                        className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:from-violet-700 hover:to-indigo-700 transition-all"
+                    >
+                        <span>📊</span>
+                        View Analytics
+                    </button>
                 </div>
-                <button
-                    onClick={() => navigate('/admin/statistics')}
-                    className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:from-violet-700 hover:to-indigo-700 transition-all"
-                >
-                    <span>📊</span>
-                    View Analytics
-                </button>
-            </div>
 
-            {/* Workshop Management Section Header */}
-            <div className="mb-6 flex items-center justify-between">
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-900">Workshop Management</h2>
-                    <p className="mt-1 text-sm text-gray-500">
-                        {totalElements} workshop{totalElements !== 1 ? 's' : ''} total
-                        {totalPages > 1 && ` · Page ${currentPage + 1} of ${totalPages}`}
-                    </p>
+                {/* Workshop Management Section Header */}
+                <div className="mb-6 flex items-center justify-between">
+                    <div>
+                        <h2 className="text-2xl font-bold text-gray-900">Workshop Management</h2>
+                        <p className="mt-1 text-sm text-gray-500">
+                            {totalElements} workshop{totalElements !== 1 ? 's' : ''} total
+                            {totalPages > 1 && ` · Page ${currentPage + 1} of ${totalPages}`}
+                        </p>
+                    </div>
+                    <button
+                        onClick={handleCreate}
+                        className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 transition"
+                    >
+                        <span className="text-lg leading-none">+</span>
+                        Create Workshop
+                    </button>
                 </div>
-                <button
-                    onClick={handleCreate}
-                    className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 transition"
-                >
-                    <span className="text-lg leading-none">+</span>
-                    Create Workshop
-                </button>
-            </div>
 
-            {/* Error Banner */}
-            {error && (
-                <div className="mb-4 flex items-center justify-between rounded-lg bg-red-50 p-3 text-sm text-red-700">
-                    <span>{error}</span>
-                    <button onClick={() => setError('')} className="font-medium hover:text-red-900">✕</button>
-                </div>
-            )}
+                {/* Error Banner */}
+                {error && (
+                    <div className="mb-4 flex items-center justify-between rounded-lg bg-red-50 p-3 text-sm text-red-700">
+                        <span>{error}</span>
+                        <button onClick={() => setError('')} className="font-medium hover:text-red-900">✕</button>
+                    </div>
+                )}
 
-            {/* Workshop Table */}
-            {workshops.length === 0 ? (
-                <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
-                    <p className="text-gray-400">No workshops yet. Click "Create Workshop" to get started.</p>
-                </div>
-            ) : (
-                <div className="overflow-hidden rounded-2xl bg-white shadow-sm border border-gray-100">
-                    <table className="w-full text-sm text-left">
-                        <thead>
-                            <tr className="border-b bg-gray-50/50 text-[11px] uppercase tracking-wider text-gray-400">
-                                <th className="px-6 py-4 font-bold text-left">Workshop</th>
-                                <th className="px-6 py-4 font-bold text-center">Status</th>
-                                <th className="px-6 py-4 font-bold text-left">Event Time</th>
-                                <th className="px-6 py-4 font-bold text-left">Registration</th>
-                                <th className="px-6 py-4 font-bold text-center">Slots</th>
-                                <th className="px-6 py-4 font-bold text-right">Price</th>
-                                <th className="px-6 py-4 font-bold text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {workshops.map((w) => (
-                                <tr key={w.id} className="border-b last:border-0 hover:bg-gray-50/30 transition">
-                                    <td className="px-6 py-3 text-left">
-                                        <div className="font-bold text-gray-900 text-[13px]">{w.title}</div>
-                                        <div className="mt-1 text-[11px] text-gray-500">
-                                            {w.speaker || '—'} · {w.roomName || '—'}
-                                        </div>
-                                        {w.description && (
-                                            <div className="mt-1 text-[11px] text-gray-400 line-clamp-1 max-w-[500px]" title={w.description}>
-                                                {w.description}
+                {/* Workshop Table */}
+                {workshops.length === 0 ? (
+                    <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
+                        <p className="text-gray-400">No workshops yet. Click "Create Workshop" to get started.</p>
+                    </div>
+                ) : (
+                    <div className="overflow-hidden rounded-2xl bg-white shadow-sm border border-gray-100">
+                        <table className="w-full text-sm text-left">
+                            <thead>
+                                <tr className="border-b bg-gray-50/50 text-[11px] uppercase tracking-wider text-gray-400">
+                                    <th className="px-6 py-4 font-bold text-left">Workshop</th>
+                                    <th className="px-6 py-4 font-bold text-center">Status</th>
+                                    <th className="px-6 py-4 font-bold text-left">Event Time</th>
+                                    <th className="px-6 py-4 font-bold text-left">Registration</th>
+                                    <th className="px-6 py-4 font-bold text-center">Slots</th>
+                                    <th className="px-6 py-4 font-bold text-right">Price</th>
+                                    <th className="px-6 py-4 font-bold text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {workshops.map((w) => (
+                                    <tr key={w.id} className="border-b last:border-0 hover:bg-gray-50/30 transition">
+                                        <td className="px-6 py-3 text-left">
+                                            <div className="font-bold text-gray-900 text-[13px]">{w.title}</div>
+                                            <div className="mt-1 text-[11px] text-gray-500">
+                                                {w.speaker || '—'} · {w.roomName || '—'}
                                             </div>
-                                        )}
-                                    </td>
-                                    <td className="px-6 py-3 text-center align-middle">{statusBadge(w.status)}</td>
-                                    <td className="px-6 py-3 text-left align-middle text-[11px] text-gray-600">
-                                        <div>{formatDateTime(w.startTime)}</div>
-                                        <div className="text-gray-400">→ {formatDateTime(w.endTime)}</div>
-                                    </td>
-                                    <td className="px-6 py-3 text-left align-middle text-[11px] text-gray-600">
-                                        <div>{formatDateTime(w.registrationStartTime)}</div>
-                                        <div className="text-gray-400">→ {formatDateTime(w.registrationEndTime)}</div>
-                                    </td>
-                                    <td className="px-6 py-3 text-center align-middle">
-                                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${w.remainingSlots === 0
-                                            ? 'bg-red-100 text-red-700'
-                                            : w.remainingSlots <= w.totalSlots * 0.2
-                                                ? 'bg-amber-100 text-amber-700'
-                                                : 'bg-green-100 text-green-700'
-                                            }`}>
-                                            {w.remainingSlots}/{w.totalSlots}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-3 text-right align-middle text-[13px] font-medium text-gray-700">{formatPrice(w.price)}</td>
-                                    <td className="px-6 py-3 text-center align-middle">
-                                        <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
-                                            <button
-                                                onClick={() => setOpenActionId(openActionId === w.id ? null : w.id)}
-                                                className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${openActionId === w.id ? 'bg-gray-100 text-gray-900 shadow-inner' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}
-                                            >
-                                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                                                </svg>
-                                            </button>
-
-                                            {openActionId === w.id && (
-                                                <div className={`absolute right-0 z-50 w-28 rounded-md border border-gray-200 bg-white py-0.5 shadow-lg ${workshops.indexOf(w) >= workshops.length - 2 && workshops.length > 0 ? 'bottom-full mb-1' : 'mt-1'}`}>
-                                                    <button onClick={() => { handleViewStats(w.id); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-50 transition">
-                                                        View Statistics
-                                                    </button>
-                                                    <button onClick={() => { handleOpenAiUpload(w); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-50 transition">
-                                                        AI Summarize
-                                                    </button>
-                                                    {w.status !== 'CANCELLED' && w.status !== 'COMPLETED' && (
-                                                        <button onClick={() => { handleEdit(w); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-50 transition">
-                                                            Edit Details
-                                                        </button>
-                                                    )}
-                                                    {w.status === 'DRAFT' && (
-                                                        <button onClick={() => { handlePublish(w.id); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] font-semibold text-gray-900 hover:bg-gray-50 transition">
-                                                            Publish Now
-                                                        </button>
-                                                    )}
-                                                    {w.status === 'PUBLISHED' && (
-                                                        <button onClick={() => { setCancelConfirm(w.id); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-red-500 hover:bg-red-50 transition">
-                                                            Cancel Workshop
-                                                        </button>
-                                                    )}
-                                                    {w.status === 'DRAFT' && (
-                                                        <button onClick={() => { setDeleteConfirm(w.id); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-red-600 hover:bg-red-50 transition">
-                                                            Delete
-                                                        </button>
-                                                    )}
+                                            {w.description && (
+                                                <div className="mt-1 text-[11px] text-gray-400 line-clamp-1 max-w-[500px]" title={w.description}>
+                                                    {w.description}
                                                 </div>
                                             )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                        </td>
+                                        <td className="px-6 py-3 text-center align-middle">{statusBadge(w.status)}</td>
+                                        <td className="px-6 py-3 text-left align-middle text-[11px] text-gray-600">
+                                            <div>{formatDateTime(w.startTime)}</div>
+                                            <div className="text-gray-400">→ {formatDateTime(w.endTime)}</div>
+                                        </td>
+                                        <td className="px-6 py-3 text-left align-middle text-[11px] text-gray-600">
+                                            <div>{formatDateTime(w.registrationStartTime)}</div>
+                                            <div className="text-gray-400">→ {formatDateTime(w.registrationEndTime)}</div>
+                                        </td>
+                                        <td className="px-6 py-3 text-center align-middle">
+                                            <span className={`inline-block rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${w.remainingSlots === 0
+                                                ? 'bg-red-100 text-red-700'
+                                                : w.remainingSlots <= w.totalSlots * 0.2
+                                                    ? 'bg-amber-100 text-amber-700'
+                                                    : 'bg-green-100 text-green-700'
+                                                }`}>
+                                                {w.remainingSlots}/{w.totalSlots}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-3 text-right align-middle text-[13px] font-medium text-gray-700">{formatPrice(w.price)}</td>
+                                        <td className="px-6 py-3 text-center align-middle">
+                                            <div className="relative inline-block text-left" onClick={(e) => e.stopPropagation()}>
+                                                <button
+                                                    onClick={() => setOpenActionId(openActionId === w.id ? null : w.id)}
+                                                    className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-200 ${openActionId === w.id ? 'bg-gray-100 text-gray-900 shadow-inner' : 'text-gray-400 hover:bg-gray-50 hover:text-gray-600'}`}
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                                                    </svg>
+                                                </button>
 
-            {/* Pagination Controls */}
-            <PaginationControl
-                currentPage={currentPage}
-                totalPages={totalPages}
-                totalElements={totalElements}
-                pageSize={PAGE_SIZE}
-                onPageChange={(page) => fetchWorkshops({ page })}
-                itemLabel="workshops"
-            />
-
-            {/* Create/Edit Modal */}
-            <WorkshopFormModal
-                isOpen={modalOpen}
-                onClose={() => setModalOpen(false)}
-                onSubmit={handleSubmit}
-                initialData={editingWorkshop}
-                isLoading={submitting}
-            />
-
-            {/* Delete Confirmation */}
-            {deleteConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-                        <h3 className="text-lg font-bold text-gray-900">Delete Workshop?</h3>
-                        <p className="mt-2 text-sm text-gray-500">
-                            This action cannot be undone. Only DRAFT workshops can be deleted.
-                        </p>
-                        <div className="mt-5 flex justify-end gap-3">
-                            <button
-                                onClick={() => setDeleteConfirm(null)}
-                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={() => handleDelete(deleteConfirm)}
-                                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition"
-                            >
-                                Delete
-                            </button>
-                        </div>
+                                                {openActionId === w.id && (
+                                                    <div className={`absolute right-0 z-50 w-30 rounded-md border border-gray-200 bg-white py-1 shadow-lg ${workshops.indexOf(w) >= workshops.length - 2 && workshops.length > 0 ? 'bottom-full mb-1' : 'mt-1'}`}>
+                                                        <button onClick={() => { handleViewAttendances(w); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-50 transition">
+                                                            View Attendances
+                                                        </button>
+                                                        <button onClick={() => { handleViewStats(w.id); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-50 transition">
+                                                            View Statistics
+                                                        </button>
+                                                        <button onClick={() => { handleOpenAiUpload(w); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-50 transition">
+                                                            AI Summarize
+                                                        </button>
+                                                        {w.status !== 'CANCELLED' && w.status !== 'COMPLETED' && (
+                                                            <button onClick={() => { handleEdit(w); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-50 transition">
+                                                                Edit Details
+                                                            </button>
+                                                        )}
+                                                        {w.status === 'DRAFT' && (
+                                                            <button onClick={() => { handlePublish(w.id); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] font-semibold text-gray-900 hover:bg-gray-50 transition">
+                                                                Publish Now
+                                                            </button>
+                                                        )}
+                                                        {w.status === 'PUBLISHED' && (
+                                                            <button onClick={() => { setCancelConfirm(w.id); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-red-500 hover:bg-red-50 transition">
+                                                                Cancel Workshop
+                                                            </button>
+                                                        )}
+                                                        {w.status === 'DRAFT' && (
+                                                            <button onClick={() => { setDeleteConfirm(w.id); setOpenActionId(null); }} className="w-full px-3 py-1.5 text-left text-[11px] text-red-600 hover:bg-red-50 transition">
+                                                                Delete
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Stats Modal */}
-            {statsData && (() => {
-                const fillRate = statsData.fillRate ?? 0;
-                const chartData = [
-                    { name: 'Registered', value: Number(statsData.registeredCount) || 0, fill: '#6366f1' },
-                    { name: 'Available', value: Math.max(0, statsData.totalSlots - (Number(statsData.registeredCount) || 0)), fill: '#e5e7eb' },
-                ];
-                return (
-                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setStatsData(null)}>
-                        <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-                            <h3 className="text-lg font-bold text-gray-900 mb-1">Workshop Statistics</h3>
-                            <p className="text-sm text-gray-500 mb-5 line-clamp-1">{statsData.title}</p>
+                {/* Pagination Controls */}
+                <PaginationControl
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalElements={totalElements}
+                    pageSize={PAGE_SIZE}
+                    onPageChange={(page) => fetchWorkshops({ page })}
+                    itemLabel="workshops"
+                />
 
-                            {/* Metric grid */}
-                            <div className="grid grid-cols-2 gap-3 mb-5">
-                                <div className="rounded-xl bg-indigo-50 p-4 text-center">
-                                    <p className="text-xs font-medium text-indigo-500 uppercase">Total Slots</p>
-                                    <p className="mt-1 text-2xl font-bold text-indigo-700">{statsData.totalSlots}</p>
-                                </div>
-                                <div className="rounded-xl bg-emerald-50 p-4 text-center">
-                                    <p className="text-xs font-medium text-emerald-500 uppercase">Remaining</p>
-                                    <p className="mt-1 text-2xl font-bold text-emerald-700">{statsData.remainingSlots}</p>
-                                </div>
-                                <div className="rounded-xl bg-violet-50 p-4 text-center">
-                                    <p className="text-xs font-medium text-violet-500 uppercase">Registered</p>
-                                    <p className="mt-1 text-2xl font-bold text-violet-700">{statsData.registeredCount}</p>
-                                </div>
-                                <div className="rounded-xl bg-amber-50 p-4 text-center">
-                                    <p className="text-xs font-medium text-amber-500 uppercase">Fill Rate</p>
-                                    <p className="mt-1 text-2xl font-bold text-amber-700">{fillRate}%</p>
-                                </div>
-                            </div>
+                {/* Create/Edit Modal */}
+                <WorkshopFormModal
+                    isOpen={modalOpen}
+                    onClose={() => setModalOpen(false)}
+                    onSubmit={handleSubmit}
+                    initialData={editingWorkshop}
+                    isLoading={submitting}
+                />
 
-                            {/* Fill rate progress bar */}
-                            <div className="mb-4">
-                                <div className="flex justify-between text-xs text-gray-500 mb-1">
-                                    <span>Fill Rate</span><span>{fillRate}%</span>
-                                </div>
-                                <div className="h-3 w-full rounded-full bg-gray-200 overflow-hidden">
-                                    <div
-                                        className={`h-full rounded-full transition-all duration-500 ${
-                                            fillRate >= 90 ? 'bg-gradient-to-r from-red-400 to-red-600' :
-                                            fillRate >= 60 ? 'bg-gradient-to-r from-amber-400 to-orange-500' :
-                                            'bg-gradient-to-r from-emerald-400 to-emerald-600'
-                                        }`}
-                                        style={{ width: `${Math.min(fillRate, 100)}%` }}
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Bar chart: registered vs remaining */}
-                            <div className="mb-4">
-                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Seat Distribution</p>
-                                <ResponsiveContainer width="100%" height={80}>
-                                    <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
-                                        <XAxis type="number" hide />
-                                        <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 11 }} />
-                                        <Tooltip formatter={(v) => [`${v} people`, '']} />
-                                        <Bar dataKey="value" radius={[0, 6, 6, 0]}>
-                                            {chartData.map((entry, i) => (
-                                                <Cell key={i} fill={entry.fill} />
-                                            ))}
-                                        </Bar>
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-
-                            <div className="flex justify-end">
+                {/* Delete Confirmation */}
+                {deleteConfirm && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                        <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+                            <h3 className="text-lg font-bold text-gray-900">Delete Workshop?</h3>
+                            <p className="mt-2 text-sm text-gray-500">
+                                This action cannot be undone. Only DRAFT workshops can be deleted.
+                            </p>
+                            <div className="mt-5 flex justify-end gap-3">
                                 <button
-                                    onClick={() => setStatsData(null)}
+                                    onClick={() => setDeleteConfirm(null)}
                                     className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
                                 >
-                                    Close
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => handleDelete(deleteConfirm)}
+                                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition"
+                                >
+                                    Delete
                                 </button>
                             </div>
                         </div>
                     </div>
-                );
-            })()}
+                )}
 
-            {/* AI Summary Upload Modal */}
-            {aiUploadOpen && aiWorkshop && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-                        <h3 className="text-lg font-bold text-gray-900 mb-2">Upload PDF for AI Summary</h3>
-                        <p className="text-sm text-gray-500 mb-4">{aiWorkshop.title}</p>
+                {/* Stats Modal */}
+                {statsData && (() => {
+                    const fillRate = statsData.fillRate ?? 0;
+                    const chartData = [
+                        { name: 'Registered', value: Number(statsData.registeredCount) || 0, fill: '#6366f1' },
+                        { name: 'Available', value: Math.max(0, statsData.totalSlots - (Number(statsData.registeredCount) || 0)), fill: '#e5e7eb' },
+                    ];
+                    return (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setStatsData(null)}>
+                            <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                                <h3 className="text-lg font-bold text-gray-900 mb-1">Workshop Statistics</h3>
+                                <p className="text-sm text-gray-500 mb-5 line-clamp-1">{statsData.title}</p>
 
-                        {aiSuccessMessage ? (
-                            <div className="mb-4 rounded-lg bg-green-50 p-4 text-sm text-green-700">
-                                {aiSuccessMessage}
-                            </div>
-                        ) : (
-                            <>
+                                {/* Metric grid */}
+                                <div className="grid grid-cols-2 gap-3 mb-5">
+                                    <div className="rounded-xl bg-indigo-50 p-4 text-center">
+                                        <p className="text-xs font-medium text-indigo-500 uppercase">Total Slots</p>
+                                        <p className="mt-1 text-2xl font-bold text-indigo-700">{statsData.totalSlots}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-emerald-50 p-4 text-center">
+                                        <p className="text-xs font-medium text-emerald-500 uppercase">Remaining</p>
+                                        <p className="mt-1 text-2xl font-bold text-emerald-700">{statsData.remainingSlots}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-violet-50 p-4 text-center">
+                                        <p className="text-xs font-medium text-violet-500 uppercase">Registered</p>
+                                        <p className="mt-1 text-2xl font-bold text-violet-700">{statsData.registeredCount}</p>
+                                    </div>
+                                    <div className="rounded-xl bg-amber-50 p-4 text-center">
+                                        <p className="text-xs font-medium text-amber-500 uppercase">Fill Rate</p>
+                                        <p className="mt-1 text-2xl font-bold text-amber-700">{fillRate}%</p>
+                                    </div>
+                                </div>
+
+                                {/* Fill rate progress bar */}
                                 <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">Select PDF File (Max 10MB)</label>
-                                    <input
-                                        type="file"
-                                        accept="application/pdf"
-                                        onChange={(e) => {
-                                            if (e.target.files && e.target.files.length > 0) {
-                                                setAiFile(e.target.files[0]);
-                                            }
-                                        }}
-                                        className="block w-full text-sm text-gray-500
+                                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                                        <span>Fill Rate</span><span>{fillRate}%</span>
+                                    </div>
+                                    <div className="h-3 w-full rounded-full bg-gray-200 overflow-hidden">
+                                        <div
+                                            className={`h-full rounded-full transition-all duration-500 ${fillRate >= 90 ? 'bg-gradient-to-r from-red-400 to-red-600' :
+                                                fillRate >= 60 ? 'bg-gradient-to-r from-amber-400 to-orange-500' :
+                                                    'bg-gradient-to-r from-emerald-400 to-emerald-600'
+                                                }`}
+                                            style={{ width: `${Math.min(fillRate, 100)}%` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Bar chart: registered vs remaining */}
+                                <div className="mb-4">
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Seat Distribution</p>
+                                    <ResponsiveContainer width="100%" height={80}>
+                                        <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 10, left: 0, bottom: 0 }}>
+                                            <XAxis type="number" hide />
+                                            <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 11 }} />
+                                            <Tooltip formatter={(v) => [`${v} people`, '']} />
+                                            <Bar dataKey="value" radius={[0, 6, 6, 0]}>
+                                                {chartData.map((entry, i) => (
+                                                    <Cell key={i} fill={entry.fill} />
+                                                ))}
+                                            </Bar>
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+
+                                <div className="flex justify-end">
+                                    <button
+                                        onClick={() => setStatsData(null)}
+                                        className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
+
+                {/* AI Summary Upload Modal */}
+                {aiUploadOpen && aiWorkshop && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                        <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+                            <h3 className="text-lg font-bold text-gray-900 mb-2">Upload PDF for AI Summary</h3>
+                            <p className="text-sm text-gray-500 mb-4">{aiWorkshop.title}</p>
+
+                            {aiSuccessMessage ? (
+                                <div className="mb-4 rounded-lg bg-green-50 p-4 text-sm text-green-700">
+                                    {aiSuccessMessage}
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-medium text-gray-700 mb-2">Select PDF File (Max 10MB)</label>
+                                        <input
+                                            type="file"
+                                            accept="application/pdf"
+                                            onChange={(e) => {
+                                                if (e.target.files && e.target.files.length > 0) {
+                                                    setAiFile(e.target.files[0]);
+                                                }
+                                            }}
+                                            className="block w-full text-sm text-gray-500
                                           file:mr-4 file:py-2 file:px-4
                                           file:rounded-full file:border-0
                                           file:text-sm file:font-semibold
                                           file:bg-fuchsia-50 file:text-fuchsia-700
                                           hover:file:bg-fuchsia-100"
-                                    />
-                                </div>
-                                <p className="text-xs text-gray-500 mb-4">
-                                    The AI service will run in the background to summarize the PDF and update the description.
-                                </p>
-                            </>
-                        )}
-
-                        <div className="mt-5 flex justify-end gap-3">
-                            <button
-                                onClick={() => {
-                                    setAiUploadOpen(false);
-                                    setAiFile(null);
-                                    setAiSuccessMessage('');
-                                }}
-                                disabled={aiUploading}
-                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
-                            >
-                                Close
-                            </button>
-                            {!aiSuccessMessage && (
-                                <button
-                                    onClick={handleAiUploadSubmit}
-                                    disabled={aiUploading || !aiFile}
-                                    className="flex items-center gap-2 rounded-lg bg-fuchsia-600 px-4 py-2 text-sm font-medium text-white hover:bg-fuchsia-700 transition disabled:opacity-50"
-                                >
-                                    {aiUploading ? (
-                                        <>
-                                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                                            Uploading...
-                                        </>
-                                    ) : 'Upload & Summarize'}
-                                </button>
+                                        />
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-4">
+                                        The AI service will run in the background to summarize the PDF and update the description.
+                                    </p>
+                                </>
                             )}
-                        </div>
-                    </div>
-                </div>
-            )}
 
-            {/* Cancel Confirmation Modal */}
-            {cancelConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-                    <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-                        <h3 className="text-lg font-bold text-gray-900">Cancel Workshop?</h3>
-                        <p className="mt-2 text-sm text-gray-500">
-                            This will <strong>permanently cancel</strong> the workshop. All <strong>SUCCESS</strong> and <strong>PENDING</strong> registrations will be cancelled automatically. Completed payments will be preserved for refund reconciliation.
-                        </p>
-                        <div className="mt-5 flex justify-end gap-3">
-                            <button
-                                onClick={() => setCancelConfirm(null)}
-                                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
-                            >
-                                No, Keep
-                            </button>
-                            <button
-                                onClick={() => handleCancel(cancelConfirm)}
-                                className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 transition"
-                            >
-                                Yes, Cancel Workshop
-                            </button>
+                            <div className="mt-5 flex justify-end gap-3">
+                                <button
+                                    onClick={() => {
+                                        setAiUploadOpen(false);
+                                        setAiFile(null);
+                                        setAiSuccessMessage('');
+                                    }}
+                                    disabled={aiUploading}
+                                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+                                >
+                                    Close
+                                </button>
+                                {!aiSuccessMessage && (
+                                    <button
+                                        onClick={handleAiUploadSubmit}
+                                        disabled={aiUploading || !aiFile}
+                                        className="flex items-center gap-2 rounded-lg bg-fuchsia-600 px-4 py-2 text-sm font-medium text-white hover:bg-fuchsia-700 transition disabled:opacity-50"
+                                    >
+                                        {aiUploading ? (
+                                            <>
+                                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                                                Uploading...
+                                            </>
+                                        ) : 'Upload & Summarize'}
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
+
+                {/* Cancel Confirmation Modal */}
+                {cancelConfirm && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                        <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+                            <h3 className="text-lg font-bold text-gray-900">Cancel Workshop?</h3>
+                            <p className="mt-2 text-sm text-gray-500">
+                                This will <strong>permanently cancel</strong> the workshop. All <strong>SUCCESS</strong> and <strong>PENDING</strong> registrations will be cancelled automatically. Completed payments will be preserved for refund reconciliation.
+                            </p>
+                            <div className="mt-5 flex justify-end gap-3">
+                                <button
+                                    onClick={() => setCancelConfirm(null)}
+                                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
+                                >
+                                    No, Keep
+                                </button>
+                                <button
+                                    onClick={() => handleCancel(cancelConfirm)}
+                                    className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 transition"
+                                >
+                                    Yes, Cancel Workshop
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Attendance Modal */}
+            {attendanceWorkshop && (
+                <AttendanceModal
+                    workshop={attendanceWorkshop}
+                    onClose={() => setAttendanceWorkshop(null)}
+                />
             )}
-        </div>
+        </>
     );
 };
 

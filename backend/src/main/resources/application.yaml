@@ -38,3 +38,12 @@ spring:
 jwt:
   access-secret: ${JWT_ACCESS_SECRET:Yn2kj3h4g5f6d7s8a9w0e1r2t3y4u5i6o7p8q9z0x1c2v3b4n5m6}
   refresh-secret: ${JWT_REFRESH_SECRET:Lp9o8i7u6y5t4r3e2w1q0a9z8x7c6v5b4n3m2k1j0h9g8f7d6s5a4}
+
+sync:
+  students:
+    cron: "0 0 2 * * *"
+    batch-size: 500
+    fetch-strategy: SUPABASE_HTTP
+    source-url: ${SYNC_STUDENTS_URL:}
+    connect-timeout-ms: 10000
+    read-timeout-ms: 30000
