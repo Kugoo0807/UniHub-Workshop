@@ -10,6 +10,7 @@ import com.unihub.backend.entity.Registration;
 import com.unihub.backend.entity.User;
 import com.unihub.backend.entity.Workshop;
 import com.unihub.backend.enums.IdempotencyState;
+import com.unihub.backend.event.WorkshopRegistrationSuccessEvent;
 import com.unihub.backend.exception.*;
 import com.unihub.backend.repository.PaymentRepository;
 import com.unihub.backend.repository.RegistrationRepository;
@@ -17,6 +18,7 @@ import com.unihub.backend.repository.UserRepository;
 import com.unihub.backend.repository.WorkshopRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +41,7 @@ public class RegistrationService {
     private final SeatLockingService seatLockingService;
     private final IdempotencyService idempotencyService;
     private final PaymentGatewayClient paymentGatewayClient;
+    private final ApplicationEventPublisher eventPublisher;
 
     private static final Duration HOLD_TTL = Duration.ofMinutes(10);
     private static final Duration IDEMPOTENCY_TTL = Duration.ofHours(24);
@@ -102,6 +105,7 @@ public class RegistrationService {
             Registration saved = registrationRepository.save(reg);
 
             if (w.getPrice() == 0L) {
+                eventPublisher.publishEvent(new WorkshopRegistrationSuccessEvent(saved.getId()));
                 return RegistrationResponse.success(saved.getQrCode());
             } else {
                 String suggestedIdempotencyKey = UUID.randomUUID().toString();
@@ -185,6 +189,8 @@ public class RegistrationService {
                 reg.setStatus("SUCCESS");
                 reg.setQrCode(generateQrCode());
                 registrationRepository.save(reg);
+
+                eventPublisher.publishEvent(new WorkshopRegistrationSuccessEvent(reg.getId()));
 
                 idempotencyService.storeResult(idempotencyKey,
                         IdempotencyResult.builder().status("SUCCESS").transactionId(result.getTransactionId()).build(),

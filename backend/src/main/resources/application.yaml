@@ -35,6 +35,18 @@ spring:
           min-idle: 4
           max-wait: PT2S
 
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 jwt:
   access-secret: ${JWT_ACCESS_SECRET:Yn2kj3h4g5f6d7s8a9w0e1r2t3y4u5i6o7p8q9z0x1c2v3b4n5m6}
   refresh-secret: ${JWT_REFRESH_SECRET:Lp9o8i7u6y5t4r3e2w1q0a9z8x7c6v5b4n3m2k1j0h9g8f7d6s5a4}
@@ -48,7 +60,19 @@ sync:
     connect-timeout-ms: 10000
     read-timeout-ms: 30000
 
+notification:
+  email:
+    enabled: ${NOTIFICATION_EMAIL_ENABLED:true}
+  telegram:
+    enabled: ${NOTIFICATION_TELEGRAM_ENABLED:true}
+    token: ${TELEGRAM_BOT_TOKEN:}
+
+telegram:
+  webhook:
+    token: ${TELEGRAM_WEBHOOK_TOKEN:}
+
+
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME:}
   api-key: ${CLOUDINARY_API_KEY:}
-  api-secret: ${CLOUDINARY_API_SECRET:}
+  api-secret: ${CLOUDINARY_API_SECRET:}

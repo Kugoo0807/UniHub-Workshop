@@ -10,14 +10,17 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import com.unihub.backend.entity.Room;
 import com.unihub.backend.entity.Workshop;
+import com.unihub.backend.dto.NotificationRecipient;
 import com.unihub.backend.exception.ConflictException;
 import com.unihub.backend.exception.ResourceNotFoundException;
+import com.unihub.backend.event.WorkshopCancelledEvent;
 import com.unihub.backend.repository.PaymentRepository;
 import com.unihub.backend.repository.RegistrationRepository;
 import com.unihub.backend.repository.RoomRepository;
 import com.unihub.backend.repository.WorkshopRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -43,6 +46,7 @@ public class WorkshopService {
     private final RegistrationRepository registrationRepository;
     private final PaymentRepository paymentRepository;
     private final SeatLockingService seatLockingService;
+    private final ApplicationEventPublisher eventPublisher;
 
     // ────────────── Admin ──────────────
 
@@ -289,7 +293,7 @@ public class WorkshopService {
      */
     @Transactional
     public void cancelWorkshop(Long id) {
-        Workshop workshop = findWorkshopOrThrow(id);
+        Workshop workshop = findWorkshopWithRoomOrThrow(id);
 
         String currentStatus = workshop.getStatus();
         if (!"PUBLISHED".equals(currentStatus)) {
@@ -305,6 +309,9 @@ public class WorkshopService {
         workshop.setStatus("CANCELLED");
         workshopRepository.save(workshop);
         log.info("Workshop {}: status set to CANCELLED.", id);
+
+        List<NotificationRecipient> recipients = registrationRepository
+            .findRecipientsByWorkshopIdAndStatus(id, "SUCCESS");
 
         // Step 2: Bulk-cancel registrations in SUCCESS or PENDING
         int cancelledCount = registrationRepository.bulkCancelByWorkshopId(
@@ -328,9 +335,19 @@ public class WorkshopService {
         // - Implement: notificationService.sendRefundConfirmation(workshop,
         // paidRegistrations);
         if (workshop.getPrice() != null && workshop.getPrice() > 0 && paidCount > 0) {
-            log.warn("[TODO] Workshop {} (price={}): {} paid registrant(s) need refund — " +
-                    "trigger refund notification via Notification Service.",
-                    id, workshop.getPrice(), paidCount);
+            log.info("Workshop {} (price={}): {} paid registrant(s) flagged for refund notice.",
+                id, workshop.getPrice(), paidCount);
+        }
+
+        if (!recipients.isEmpty()) {
+            eventPublisher.publishEvent(new WorkshopCancelledEvent(
+                    workshop.getId(),
+                    workshop.getTitle(),
+                    workshop.getStartTime(),
+                    workshop.getRoom() != null ? workshop.getRoom().getName() : "TBD",
+                    workshop.getPrice(),
+                    recipients
+            ));
         }
     }
 

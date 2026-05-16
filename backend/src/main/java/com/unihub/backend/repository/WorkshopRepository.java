@@ -58,4 +58,15 @@ public interface WorkshopRepository extends JpaRepository<Workshop, Long> {
     void updateDescription(@Param("id") Long id, @Param("description") String description);
 
     List<Workshop> findByStatusAndEndTimeBefore(String status, LocalDateTime time);
+
+        @Query("""
+            select w from Workshop w
+            join fetch w.room
+            where w.status = :status
+              and w.startTime between :start and :end
+            """)
+        List<Workshop> findByStatusAndStartTimeBetween(
+            @Param("status") String status,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end);
 }

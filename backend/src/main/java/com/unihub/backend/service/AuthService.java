@@ -127,6 +127,7 @@ public class AuthService {
                 .email(user.getEmail())
                 .studentCode(user.getStudentCode())
                 .phoneNumber(user.getPhoneNumber())
+                .chatId(user.getChatId())
                 .role(user.getRole())
                 .status(user.getStatus())
                 .build();

@@ -1,10 +1,41 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import telegramService from '../services/telegramService';
 
 const ProfilePage = () => {
-    const { user } = useAuth();
+    const { user, refreshProfile } = useAuth();
     const navigate = useNavigate();
+    const [message, setMessage] = useState('');
+    const [errorMessage, setErrorMessage] = useState('');
+    const [isRefreshing, setIsRefreshing] = useState(false);
+
+    const isTelegramLinked = Boolean(user?.chatId);
+
+    const handleConnectTelegram = () => {
+        setErrorMessage('');
+        setMessage('');
+        try {
+            const link = telegramService.openTelegramDeepLink(user?.id);
+            setMessage(`Opened Telegram. If it did not open, use this link: ${link}`);
+        } catch (error) {
+            setErrorMessage(error.message || 'Unable to open Telegram.');
+        }
+    };
+
+    const handleRefreshStatus = async () => {
+        setErrorMessage('');
+        setMessage('');
+        setIsRefreshing(true);
+        try {
+            await refreshProfile();
+            setMessage('Profile refreshed.');
+        } catch (error) {
+            setErrorMessage(error.message || 'Failed to refresh profile.');
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
@@ -80,6 +111,49 @@ const ProfilePage = () => {
                             </p>
                         </div>
                     </div>
+                </div>
+
+                <div className="mt-6 rounded-2xl bg-white p-6 sm:p-8 shadow-sm border border-gray-100">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 className="text-lg font-semibold text-gray-900">Telegram Connection</h3>
+                            <p className="text-sm text-gray-600 mt-1">
+                                Link your Telegram account to receive instant notifications.
+                            </p>
+                            <p className={`mt-3 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${
+                                isTelegramLinked
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : 'bg-amber-100 text-amber-700'
+                            }`}>
+                                {isTelegramLinked ? 'Connected' : 'Not connected'}
+                            </p>
+                        </div>
+                        <div className="flex flex-col gap-2 sm:items-end">
+                            <button
+                                type="button"
+                                onClick={handleConnectTelegram}
+                                className="rounded-lg bg-blue-600 px-4 py-2 text-white font-semibold hover:bg-blue-700 transition"
+                            >
+                                Connect Telegram
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleRefreshStatus}
+                                className="rounded-lg px-4 py-2 text-gray-600 hover:bg-gray-100 transition"
+                                disabled={isRefreshing}
+                            >
+                                {isRefreshing ? 'Refreshing...' : 'Refresh Status'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {(message || errorMessage) && (
+                        <div className={`mt-4 rounded-lg px-4 py-3 text-sm ${
+                            errorMessage ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'
+                        }`}>
+                            {errorMessage || message}
+                        </div>
+                    )}
                 </div>
 
                 {/* Additional Info */}

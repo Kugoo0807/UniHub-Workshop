@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import WorkshopFormModal from '../components/workshops/WorkshopFormModal';
 import AttendanceModal from '../components/workshops/AttendanceModal';
 import PaginationControl from '../components/common/PaginationControl';
+import CreateAccountModal from '../components/common/CreateAccountModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const formatDateTime = (dt) => {
@@ -62,6 +63,7 @@ const Dashboard = () => {
     const [aiSuccessMessage, setAiSuccessMessage] = useState('');
     const [openActionId, setOpenActionId] = useState(null);
     const [attendanceWorkshop, setAttendanceWorkshop] = useState(null);
+    const [createAccountOpen, setCreateAccountOpen] = useState(false);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -269,6 +271,15 @@ const Dashboard = () => {
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
+                        {user?.role === 'ADMIN' && (
+                            <button
+                                onClick={() => setCreateAccountOpen(true)}
+                                className="flex items-center gap-2 rounded-xl border-2 border-violet-200 bg-white px-4 py-2.5 text-sm font-semibold text-violet-700 shadow-sm hover:border-violet-400 hover:bg-violet-50 transition-all"
+                            >
+                                <span className="text-base leading-none">👤</span>
+                                Create Account
+                            </button>
+                        )}
                         <button
                             onClick={() => navigate('/admin/rooms')}
                             className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:from-violet-700 hover:to-indigo-700 transition-all"
@@ -644,6 +655,12 @@ const Dashboard = () => {
                     onClose={() => setAttendanceWorkshop(null)}
                 />
             )}
+
+            {/* Create Account Modal */}
+            <CreateAccountModal
+                isOpen={createAccountOpen}
+                onClose={() => setCreateAccountOpen(false)}
+            />
         </>
     );
 };
