@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -62,4 +63,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
               and p.status in ('COMPLETED', 'FAILED')
             """)
     long countTotalAttemptsForPaidWorkshops();
+
+    /** Find all payments linked to a list of registration IDs (used for batch refund processing). */
+    List<Payment> findByRegistrationIdIn(List<Long> registrationIds);
 }

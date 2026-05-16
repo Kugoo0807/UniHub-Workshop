@@ -6,6 +6,7 @@ import com.unihub.backend.entity.Room;
 import com.unihub.backend.exception.ConflictException;
 import com.unihub.backend.exception.ResourceNotFoundException;
 import com.unihub.backend.repository.RoomRepository;
+import io.micrometer.observation.annotation.ObservationKeyValue;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -36,16 +38,21 @@ public class RoomService {
 
     @Transactional(readOnly = true)
     public List<RoomResponse> getAllRooms() {
-        return roomRepository.findAllByOrderByIdAsc()
-                .stream()
-                .map(this::toResponse)
-                .collect(Collectors.toList());
+        List<Room> rooms = roomRepository.findAll();
+
+        List<Long> roomIds = rooms.stream().map(Room::getId).toList();
+        Map<Long, Long> activeCounts = getSuccessfulCountActiveWorkshopByRooms(roomIds);
+
+        return rooms.stream()
+                .map(room -> toResponse(room, activeCounts.getOrDefault(room.getId(), 0L)))
+                .toList();
     }
 
     @Transactional(readOnly = true)
     public RoomResponse getRoomById(Long id) {
         Room room = findOrThrow(id);
-        return toResponse(room);
+        Long activeCount = roomRepository.countActiveWorkshopsByRoomId(id);
+        return toResponse(room, activeCount);
     }
 
     // ─── Create ───────────────────────────────────────────────────────────────
@@ -61,7 +68,9 @@ public class RoomService {
                 .build();
         room = roomRepository.save(room);
         log.info("Created room id={} name={}", room.getId(), room.getName());
-        return toResponse(room);
+
+        Long activeCount = roomRepository.countActiveWorkshopsByRoomId(room.getId());
+        return toResponse(room, activeCount);
     }
 
     // ─── Update ───────────────────────────────────────────────────────────────
@@ -88,7 +97,9 @@ public class RoomService {
         room.setCapacity(request.capacity());
         room = roomRepository.save(room);
         log.info("Updated room id={}", id);
-        return toResponse(room);
+
+        Long activeCount = roomRepository.countActiveWorkshopsByRoomId(room.getId());
+        return toResponse(room, activeCount);
     }
 
     // ─── Upload map image ─────────────────────────────────────────────────────
@@ -109,7 +120,9 @@ public class RoomService {
         room.setLayoutMapUrl(url);
         room = roomRepository.save(room);
         log.info("Updated layoutMapUrl for room id={}: {}", id, url);
-        return toResponse(room);
+
+        Long activeCount = roomRepository.countActiveWorkshopsByRoomId(room.getId());
+        return toResponse(room, activeCount);
     }
 
     // ─── Delete ───────────────────────────────────────────────────────────────
@@ -150,8 +163,7 @@ public class RoomService {
         }
     }
 
-    private RoomResponse toResponse(Room room) {
-        long activeCount = roomRepository.countActiveWorkshopsByRoomId(room.getId());
+    private RoomResponse toResponse(Room room, Long activeCount) {
         return RoomResponse.builder()
                 .id(room.getId())
                 .name(room.getName())
@@ -159,5 +171,19 @@ public class RoomService {
                 .layoutMapUrl(room.getLayoutMapUrl())
                 .activeWorkshopCount(activeCount)
                 .build();
+    }
+
+    private Map<Long, Long> getSuccessfulCountActiveWorkshopByRooms(List<Long> roomIds) {
+        if (roomIds == null || roomIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Object[]> counts = roomRepository.countActiveWorkshopsByRoomIds(roomIds);
+
+        return counts.stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0], // roomId
+                        row -> (Long) row[1]  // activeCount
+                ));
     }
 }
