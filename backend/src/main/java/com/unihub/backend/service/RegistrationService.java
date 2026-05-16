@@ -25,8 +25,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -244,16 +246,24 @@ public class RegistrationService {
 
     @Transactional(readOnly = true)
     public List<UserRegistrationResponse> getUserRegistrations(Long userId) {
-        return registrationRepository.findAllByUserIdWithWorkshop(userId).stream()
+        List<Registration> registrations = registrationRepository.findAllByUserIdWithWorkshop(userId);
+
+        if (registrations.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> registrationIds = registrations.stream().map(Registration::getId).toList();
+        Map<Long, String> paymentsByRegistrationId = paymentRepository.findByRegistrationIdIn(registrationIds).stream()
+                .collect(Collectors.toMap(p -> p.getRegistration().getId(), Payment::getIdempotencyKey));
+
+        return registrations.stream()
                 .map(registration -> UserRegistrationResponse.builder()
                         .registrationId(registration.getId())
                         .workshopId(registration.getWorkshop().getId())
                         .title(registration.getWorkshop().getTitle())
                         .status(registration.getStatus())
                 .qrCode("SUCCESS".equals(registration.getStatus()) ? registration.getQrCode() : null)
-                .paymentIdempotencyKey(paymentRepository.findByRegistrationId(registration.getId())
-                    .map(Payment::getIdempotencyKey)
-                    .orElse(null))
+                .paymentIdempotencyKey(paymentsByRegistrationId.get(registration.getId()))
                 .startTime(registration.getWorkshop().getStartTime())
                 .endTime(registration.getWorkshop().getEndTime())
                         .createdAt(registration.getCreatedAt())
@@ -275,6 +285,12 @@ public class RegistrationService {
                 registrationRepository.findAllByUserIdWithWorkshop(userId,
                         org.springframework.data.domain.PageRequest.of(page, size));
 
+        List<Long> registrationIds = regPage.getContent().stream().map(Registration::getId).toList();
+        Map<Long, String> paymentsByRegistrationId = registrationIds.isEmpty()
+                ? Map.of()
+                : paymentRepository.findByRegistrationIdIn(registrationIds).stream()
+                .collect(Collectors.toMap(p -> p.getRegistration().getId(), Payment::getIdempotencyKey));
+
         List<UserRegistrationResponse> content = regPage.getContent().stream()
                 .map(registration -> UserRegistrationResponse.builder()
                         .registrationId(registration.getId())
@@ -282,9 +298,7 @@ public class RegistrationService {
                         .title(registration.getWorkshop().getTitle())
                         .status(registration.getStatus())
                         .qrCode("SUCCESS".equals(registration.getStatus()) ? registration.getQrCode() : null)
-                        .paymentIdempotencyKey(paymentRepository.findByRegistrationId(registration.getId())
-                                .map(Payment::getIdempotencyKey)
-                                .orElse(null))
+                        .paymentIdempotencyKey(paymentsByRegistrationId.get(registration.getId()))
                         .startTime(registration.getWorkshop().getStartTime())
                         .endTime(registration.getWorkshop().getEndTime())
                         .createdAt(registration.getCreatedAt())

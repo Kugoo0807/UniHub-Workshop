@@ -5,6 +5,7 @@ import com.unihub.backend.dto.WorkshopAttendanceResponse;
 import com.unihub.backend.dto.WorkshopRequest;
 import com.unihub.backend.dto.WorkshopResponse;
 import com.unihub.backend.dto.WorkshopStatsResponse;
+import com.unihub.backend.entity.Registration;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,6 +35,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -51,9 +53,13 @@ public class WorkshopService {
     // ────────────── Admin ──────────────
 
     public List<WorkshopResponse> getAllWorkshops() {
-        return workshopRepository.findAllWithRoom()
-                .stream()
-                .map(this::toResponse)
+        List<Workshop> workshops = workshopRepository.findAllWithRoom();
+
+        List<Long> workshopIds = workshops.stream().map(Workshop::getId).toList();
+        Map<Long, Long> successfulCounts = getSuccessfulCountsForWorkshops(workshopIds);
+
+        return workshops.stream()
+                .map(w -> toResponse(w, null, successfulCounts.getOrDefault(w.getId(), 0L)))
                 .toList();
     }
 
@@ -151,8 +157,18 @@ public class WorkshopService {
         if (!"PUBLISHED".equals(workshop.getStatus())) {
             throw new ResourceNotFoundException("Workshop not found or is not currently available");
         }
+
         long count = registrationRepository.countByWorkshopIdAndStatus(id, "SUCCESS");
-        return toResponse(workshop, getUserRegistrationStatuses(userId).get(workshop.getId()), count);
+
+        String userStatus = null;
+        if (userId != null) {
+            Optional<Registration> regOpt = registrationRepository.findByUserIdAndWorkshopId(userId, id);
+            if (regOpt.isPresent() && ("PENDING".equals(regOpt.get().getStatus()) || "SUCCESS".equals(regOpt.get().getStatus()))) {
+                userStatus = regOpt.get().getStatus();
+            }
+        }
+
+        return toResponse(workshop, userStatus, count);
     }
 
     @Transactional
