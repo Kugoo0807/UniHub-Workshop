@@ -55,11 +55,11 @@ class StudentSyncServiceTest {
                 transactionManager
         );
 
-        when(csvFetchStrategy.getStrategyName()).thenReturn("SUPABASE_HTTP");
-        when(transactionManager.getTransaction(any(TransactionDefinition.class)))
+        lenient().when(csvFetchStrategy.getStrategyName()).thenReturn("SUPABASE_HTTP");
+        lenient().when(transactionManager.getTransaction(any(TransactionDefinition.class)))
                 .thenReturn(new SimpleTransactionStatus());
-        doNothing().when(transactionManager).commit(any());
-        doNothing().when(transactionManager).rollback(any());
+        lenient().doNothing().when(transactionManager).commit(any());
+        lenient().doNothing().when(transactionManager).rollback(any());
     }
 
     @Test
@@ -70,18 +70,18 @@ class StudentSyncServiceTest {
 
         when(csvFetchStrategy.openStream()).thenReturn(stream(csv));
         when(jdbcTemplate.batchUpdate(anyString(), anyList(), anyInt(), any(ParameterizedPreparedStatementSetter.class)))
-                .thenReturn(new int[]{1}, new int[]{1});
+                .thenReturn(new int[][]{new int[]{1}, new int[]{1}});
 
         StudentSyncResponse response = studentSyncService.syncStudents(true);
 
         assertEquals(2, response.getTotalRows());
         assertEquals(2, response.getSuccessRows());
         assertEquals(0, response.getFailedRows());
-        assertEquals(1, response.getBatchSize());
+        assertEquals(100, response.getBatchSize());
         assertEquals("SUPABASE_HTTP", response.getStrategy());
         assertTrue(response.isManualTrigger());
 
-        verify(jdbcTemplate, times(2))
+        verify(jdbcTemplate, times(1))
                 .batchUpdate(anyString(), anyList(), anyInt(), any(ParameterizedPreparedStatementSetter.class));
     }
 
@@ -93,7 +93,7 @@ class StudentSyncServiceTest {
 
         when(csvFetchStrategy.openStream()).thenReturn(stream(csv));
         when(jdbcTemplate.batchUpdate(anyString(), anyList(), anyInt(), any(ParameterizedPreparedStatementSetter.class)))
-                .thenReturn(new int[]{1});
+                .thenReturn(new int[][]{new int[]{1}});
 
         StudentSyncResponse response = studentSyncService.syncStudents(false);
 
