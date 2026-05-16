@@ -13,6 +13,8 @@ import org.springframework.data.domain.Pageable;
 import java.util.List;
 import java.time.LocalDateTime;
 
+import com.unihub.backend.dto.NotificationRecipient;
+
 @Repository
 public interface RegistrationRepository extends JpaRepository<Registration, Long> {
 
@@ -45,6 +47,29 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
     )
     Page<Registration> findAllByUserIdWithWorkshop(@Param("userId") Long userId, Pageable pageable);
 
+    @Query("""
+            select r
+            from Registration r
+            join fetch r.user u
+            join fetch r.workshop w
+            join fetch w.room
+            where r.id = :registrationId
+            """)
+    java.util.Optional<Registration> findByIdWithUserAndWorkshop(@Param("registrationId") Long registrationId);
+
+    @Query("""
+            select new com.unihub.backend.dto.NotificationRecipient(
+                                u.id, u.fullName, u.email, u.phoneNumber, u.chatId
+            )
+            from Registration r
+            join r.user u
+            where r.workshop.id = :workshopId
+              and r.status = :status
+            """)
+    List<NotificationRecipient> findRecipientsByWorkshopIdAndStatus(
+            @Param("workshopId") Long workshopId,
+            @Param("status") String status);
+
     // Find PENDING registrations created before the cutoff time (used by cancellation job)
     List<Registration> findByStatusAndCreatedAtBefore(String status, LocalDateTime cutoff);
 
@@ -65,6 +90,20 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
             @Param("statuses") List<String> statuses);
 
     // ─── Global stats queries ───────────────────────────────────────────────
+
+    /**
+     * Batch count successful registrations for a list of workshop IDs to prevent N+1.
+     * Returns Object[] { workshopId (Long), count (Long) }.
+     */
+    @Query("""
+            SELECT r.workshop.id, COUNT(r)
+            FROM Registration r
+            WHERE r.workshop.id IN :workshopIds AND r.status = :status
+            GROUP BY r.workshop.id
+            """)
+    List<Object[]> countByWorkshopIdsAndStatus(
+            @Param("workshopIds") List<Long> workshopIds,
+            @Param("status") String status);
 
     /** Count all registrations by status. */
     long countByStatus(String status);

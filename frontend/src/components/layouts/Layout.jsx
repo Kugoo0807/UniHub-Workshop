@@ -50,6 +50,26 @@ const Layout = () => {
                                         {link.label}
                                     </Link>
                                 ))}
+                                <Link
+                                    to="/notifications"
+                                    className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-indigo-200 hover:text-indigo-600 transition"
+                                    title="Notifications"
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="1.5"
+                                        className="h-5 w-5"
+                                    >
+                                        <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            d="M14.5 18.5a2.5 2.5 0 0 1-5 0m8.5-4.5V9a6 6 0 1 0-12 0v5l-2 2h16l-2-2Z"
+                                        />
+                                    </svg>
+                                </Link>
                                 <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
                                     <div className="text-right">
                                         <p className="text-xs font-semibold text-gray-700">{user?.fullName}</p>
@@ -116,6 +136,16 @@ const Layout = () => {
                                             {link.label}
                                         </Link>
                                     ))}
+                                    <Link
+                                        to="/notifications"
+                                        onClick={() => setIsMobileMenuOpen(false)}
+                                        className={`text-sm font-medium px-3 py-2 rounded-md transition-colors sm:hidden ${isActive('/notifications')
+                                            ? 'bg-indigo-100 text-indigo-700'
+                                            : 'text-gray-600 hover:bg-gray-100'
+                                            }`}
+                                    >
+                                        Notifications
+                                    </Link>
                                     <button
                                         onClick={() => {
                                             handleLogout();

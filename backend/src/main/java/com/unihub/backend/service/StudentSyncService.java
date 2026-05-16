@@ -2,6 +2,7 @@ package com.unihub.backend.service;
 
 import com.unihub.backend.config.StudentSyncProperties;
 import com.unihub.backend.dto.StudentSyncResponse;
+import com.unihub.backend.event.CsvSyncCompletedEvent;
 import com.unihub.backend.exception.FileStorageException;
 import com.unihub.backend.service.csv.CsvFetchStrategy;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -22,6 +24,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.time.Duration;
+import java.time.Instant;
 
 @Service
 @RequiredArgsConstructor
@@ -44,8 +48,10 @@ public class StudentSyncService {
     private final StudentSyncProperties properties;
     private final JdbcTemplate jdbcTemplate;
     private final PlatformTransactionManager transactionManager;
+    private final ApplicationEventPublisher eventPublisher;
 
     public StudentSyncResponse syncStudents(boolean manualTrigger) {
+        Instant startTime = Instant.now();
         CsvFetchStrategy strategy = resolveStrategy();
         int batchSize = Math.max(100, properties.getBatchSize());
 
@@ -126,6 +132,9 @@ public class StudentSyncService {
         // Log the summary of the sync operation
         long processed = success + failed;
         log.info("Student CSV sync finished. total={}, success={}, failed={}", processed, success, failed);
+
+        long durationSeconds = Duration.between(startTime, Instant.now()).toSeconds();
+        eventPublisher.publishEvent(new CsvSyncCompletedEvent(processed, success, failed, durationSeconds));
 
         // Build and return the response object with sync results and metadata
         return StudentSyncResponse.builder()

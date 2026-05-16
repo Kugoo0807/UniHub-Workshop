@@ -28,6 +28,9 @@ public class UserProfileResponse {
     @Schema(description = "Phone number", example = "+15559876543")
     private String phoneNumber;
 
+    @Schema(description = "Telegram chat identifier", example = "583920123")
+    private String chatId;
+
     @Schema(description = "User role", example = "STUDENT")
     private String role;
 

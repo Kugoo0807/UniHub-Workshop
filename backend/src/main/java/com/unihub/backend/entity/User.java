@@ -32,6 +32,9 @@ public class User {
     @Column(name = "phone_number", unique = true, length = 15)
     private String phoneNumber;
 
+    @Column(name = "chat_id", length = 255)
+    private String chatId;
+
     @Column(nullable = false, length = 20)
     private String role;    // STUDENT, ADMIN, STAFF
 

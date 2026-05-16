@@ -28,4 +28,16 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
               AND w.status IN ('DRAFT', 'PUBLISHED')
             """)
     long countActiveWorkshopsByRoomId(@Param("roomId") Long roomId);
+
+    /**
+     * Batch version of countActiveWorkshopsByRoomId for multiple room IDs at once.
+     * Returns a list of Object[] where index 0 is roomId and index 1 is the count.
+     */
+    @Query("""
+            SELECT w.room.id, COUNT(w) FROM Workshop w
+            WHERE w.room.id IN :roomIds
+              AND w.status IN ('DRAFT', 'PUBLISHED')
+            GROUP BY w.room.id
+            """)
+    List<Object[]> countActiveWorkshopsByRoomIds(@Param("roomIds") List<Long> roomIds);
 }
