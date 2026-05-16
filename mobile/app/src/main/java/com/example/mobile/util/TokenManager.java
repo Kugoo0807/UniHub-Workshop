@@ -25,6 +25,10 @@ public class TokenManager {
         return prefs.getString(KEY_ACCESS_TOKEN, null);
     }
 
+    public String getRefreshToken() {
+        return prefs.getString(KEY_REFRESH_TOKEN, null);
+    }
+
     public void clearTokens() {
         prefs.edit().clear().apply();
     }

@@ -6,6 +6,7 @@ import com.example.mobile.data.remote.dto.CheckinSyncRequest;
 import com.example.mobile.data.remote.dto.CheckinSyncResponse;
 import com.example.mobile.data.remote.dto.LoginRequest;
 import com.example.mobile.data.remote.dto.PageResponse;
+import com.example.mobile.data.remote.dto.RefreshTokenRequest;
 import com.example.mobile.data.remote.dto.WorkshopResponse;
 
 import java.util.List;
@@ -21,6 +22,9 @@ public interface ApiService {
 
     @POST("api/v1/auth/login/app")
     Call<AuthResponse> login(@Body LoginRequest request);
+
+    @POST("api/v1/auth/refresh")
+    Call<AuthResponse> refreshToken(@Body RefreshTokenRequest refreshToken);
 
     @GET("api/v1/workshops")
     Call<PageResponse<WorkshopResponse>> getWorkshops(@Query("page") int page, @Query("size") int size);
