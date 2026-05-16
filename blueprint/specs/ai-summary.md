@@ -2,7 +2,9 @@
 
 ## Mô tả
 
-Ban tổ chức (Admin) có thể upload file PDF giới thiệu về workshop. Hệ thống tự động xử lý, tách nội dung, làm sạch văn bản và gửi sang mô hình AI (LLM) để tạo bản tóm tắt. Kết quả được lưu vào cột `description` của bảng `workshops`, hiển thị trên trang chi tiết workshop.
+Ban tổ chức (Admin) có thể upload file PDF giới thiệu về workshop. Hệ thống tự động xử lý, tách nội dung, làm sạch văn bản và gửi sang mô hình AI (LLM) để tạo **bản tóm tắt** và **trích xuất tên diễn giả** (nếu có). Kết quả được lưu vào bảng `workshops`:
+- `description` ← nội dung tóm tắt (luôn cập nhật nếu AI trả về)
+- `speaker` ← tên diễn giả (chỉ cập nhật nếu AI tìm thấy trong PDF; nếu không có thì **giữ nguyên** giá trị cũ)
 
 Tính năng này được thiết kế **hoàn toàn bất đồng bộ** và **non-blocking** — hệ thống chính (Spring Boot) không bị ảnh hưởng nếu AI service gặp sự cố.
 
@@ -62,12 +64,14 @@ Admin POST /api/workshops/{id}/ai-summary (multipart/form-data)
 5. **FastAPI nhận và xử lý:**
    - Trích xuất text từ PDF (sử dụng thư viện xử lý PDF: `PyPDF2`, `pdfplumber`, ...).
    - Làm sạch văn bản: loại bỏ header/footer lặp, khoảng trắng thừa, ký tự đặc biệt.
-   - Gọi LLM Provider (Gemini/Groq) để tạo bản tóm tắt.
-   - Trả về summary cho Spring Boot.
+   - Gọi LLM Provider (Gemini/Groq) với prompt **2-in-1** để tạo tóm tắt và trích xuất diễn giả cùng một lần.
+   - Trả về `{ summary, speaker }` cho Spring Boot — `speaker` là `null` nếu PDF không đề cập.
 
 6. **Spring Boot cập nhật DB:**
-   - `UPDATE workshops SET description = '{summary}' WHERE id = {workshopId}`.
-   - Nếu FastAPI lỗi → log WARNING, `description` giữ nguyên giá trị cũ.
+   - Nếu `summary` hợp lệ (non-null, non-blank) → `UPDATE workshops SET description = '{summary}' WHERE id = {workshopId}`.
+   - Nếu `speaker` hợp lệ (non-null, non-blank) → `UPDATE workshops SET speaker = '{speaker}' WHERE id = {workshopId}`.
+   - Nếu `speaker = null` → **không cập nhật** cột `speaker` (giữ nguyên giá trị Admin đã nhập).
+   - Nếu FastAPI lỗi → log WARNING, giữ nguyên cả `description` lẫn `speaker`.
 
 ---
 
@@ -113,10 +117,12 @@ Admin POST /api/workshops/{id}/ai-summary (multipart/form-data)
 ```json
 {
   "workshop_id": 1,
-  "summary": "Workshop tập trung vào các nguyên tắc Clean Code trong Java, bao gồm: đặt tên biến có ý nghĩa, viết hàm ngắn gọn, xử lý lỗi đúng cách, và các kỹ thuật refactoring phổ biến."
+  "summary": "Workshop tập trung vào các nguyên tắc Clean Code trong Java, bao gồm: đặt tên biến có ý nghĩa, viết hàm ngắn gọn, xử lý lỗi đúng cách, và các kỹ thuật refactoring phổ biến.",
+  "speaker": "Nguyen Van A"
 }
-
 ```
+
+> **Lưu ý:** Nếu PDF không đề cập đến diễn giả, field `speaker` trả về `null` — Spring Boot sẽ **không ghi đè** cột `speaker` trong DB.
 
 **Response `400 Bad Request` (PDF không đọc được):**
 ```json
@@ -184,8 +190,12 @@ ai-service/
    - Loại bỏ header/footer lặp.
    - Chuẩn hóa khoảng trắng, xuống dòng.
    - Cắt nếu text quá dài (giới hạn context window của LLM).
-4. **Gọi LLM API:**
-   - Gửi prompt dạng: *"Hãy tóm tắt nội dung workshop sau đây trong 3-5 câu bằng tiếng Việt: {text}"*
+4. **Gọi LLM API (prompt 2-in-1):**
+   - Gửi một prompt duy nhất yêu cầu LLM trả về **JSON** với 2 trường `summary` và `speaker`.
+   - Quy tắc trong prompt cho trường `speaker`:
+     - **Chỉ điền** nếu tài liệu **rõ ràng ghi nhãn** người trình bày (ví dụ: `Diễn giả:`, `Speaker:`, `Presented by:`, `Báo cáo viên:`, ...).
+     - **Không điền** nếu tên người chỉ xuất hiện trong tài liệu tham khảo, trích dẫn, ví dụ minh họa, danh sách người tham dự, hoặc lời cảm ơn.
+     - Nếu không xác định được rõ ràng → trả `null`.
    - LLM Provider: cấu hình qua biến môi trường (`LLM_PROVIDER`, `LLM_API_KEY`).
 5. **Trả kết quả** về Spring Boot.
 
@@ -196,13 +206,25 @@ ai-service/
 public class WorkshopAiService {
 
     @Async
-    public void generateSummaryAsync(Long workshopId, MultipartFile file) {
+    @Transactional
+    public void generateSummaryAsync(Long workshopId, byte[] fileBytes, String filename) {
         try {
             // 1. Gọi FastAPI
-            String summary = callFastApiSummarize(workshopId, file);
+            AiSummaryResponse aiResp = callFastApiSummarize(workshopId, fileBytes, filename);
 
-            // 2. Cập nhật DB
-            workshopRepository.updateDescription(workshopId, summary);
+            // 2. Cập nhật description (luôn cập nhật nếu có)
+            if (aiResp.getSummary() != null && !aiResp.getSummary().isBlank()) {
+                workshopRepository.updateDescription(workshopId, aiResp.getSummary());
+            }
+
+            // 3. Cập nhật speaker CHỈ KHI AI tìm thấy trong PDF
+            if (aiResp.getSpeaker() != null && !aiResp.getSpeaker().isBlank()) {
+                workshopRepository.findById(workshopId).ifPresent(w -> {
+                    w.setSpeaker(aiResp.getSpeaker());
+                    workshopRepository.save(w);
+                });
+            }
+            // Nếu speaker = null → KHÔNG ghi đè, giữ nguyên giá trị Admin đã nhập
 
         } catch (Exception e) {
             // Nuốt mọi exception — KHÔNG throw ra ngoài
@@ -247,11 +269,12 @@ networks:
 
 | Test ID | Scenario | Expected |
 |---|---|---|
-| `AI-UT-01` | Upload PDF hợp lệ, FastAPI trả summary thành công | `description` được cập nhật trong DB |
-| `AI-UT-02` | FastAPI timeout (> 30s) | Log WARNING, `description` không đổi, không throw |
-| `AI-UT-03` | FastAPI trả lỗi 500 | Log WARNING, `description` không đổi, không throw |
-| `AI-UT-04` | FastAPI hoàn toàn down (connection refused) | Log ERROR, `description` không đổi, không throw |
-| `AI-UT-05` | Upload lại PDF cho cùng workshop | `description` được ghi đè bằng summary mới |
+| `AI-UT-01` | Upload PDF hợp lệ, FastAPI trả `summary` + `speaker` thành công | `description` và `speaker` đều được cập nhật trong DB |
+| `AI-UT-02` | FastAPI trả `summary` nhưng `speaker = null` | `description` cập nhật, `speaker` **không thay đổi** |
+| `AI-UT-03` | FastAPI timeout (> 30s) | Log WARNING, `description` + `speaker` không đổi, không throw |
+| `AI-UT-04` | FastAPI trả lỗi 500 | Log WARNING, không thay đổi DB, không throw |
+| `AI-UT-05` | FastAPI hoàn toàn down (connection refused) | Log ERROR, không throw |
+| `AI-UT-06` | Upload lại PDF cho cùng workshop | `description` bị ghi đè bằng summary mới; `speaker` cập nhật nếu AI tìm thấy |
 
 ### Integration Tests (Controller Layer)
 

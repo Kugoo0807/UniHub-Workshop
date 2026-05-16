@@ -26,23 +26,19 @@ import java.util.List;
 @Tag(name = "Check-in", description = "Endpoints for event check-in staff to manage and sync attendees.")
 public class CheckinController {
 
-    private final CheckinService checkinService;
+        private final CheckinService checkinService;
 
-
-    @PostMapping("/checkins/sync")
-    @PreAuthorize("hasRole('STAFF')")
-    @Operation(summary = "Sync check-in records", description = "Receives a batch of check-in records from the mobile app and performs idempotent inserts into the database.")
-    @SecurityRequirement(name = com.unihub.backend.config.OpenApiConfig.BEARER_AUTH_SCHEME)
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Sync completed, returns counts of successes, duplicates, and failures"),
-            @ApiResponse(responseCode = "400", description = "Invalid request format",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "401", description = "Unauthorized",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
-            @ApiResponse(responseCode = "403", description = "Forbidden (Requires STAFF role)",
-                    content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
-    })
-    public ResponseEntity<CheckinSyncResponse> syncCheckins(@Valid @RequestBody CheckinSyncRequest request) {
-        return ResponseEntity.ok(checkinService.syncCheckins(request));
-    }
+        @PostMapping("/checkins/sync")
+        @PreAuthorize("hasRole('STAFF')")
+        @Operation(summary = "Sync check-in records", description = "Receives a batch of check-in records from the mobile app and performs idempotent inserts into the database.")
+        @SecurityRequirement(name = com.unihub.backend.config.OpenApiConfig.BEARER_AUTH_SCHEME)
+        @ApiResponses({
+                        @ApiResponse(responseCode = "200", description = "Sync completed, returns counts of successes, duplicates, and failures"),
+                        @ApiResponse(responseCode = "400", description = "Invalid request format", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+                        @ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(schema = @Schema(implementation = ErrorResponse.class))),
+                        @ApiResponse(responseCode = "403", description = "Forbidden (Requires STAFF role)", content = @Content(schema = @Schema(implementation = ErrorResponse.class)))
+        })
+        public ResponseEntity<CheckinSyncResponse> syncCheckins(@Valid @RequestBody CheckinSyncRequest request) {
+                return ResponseEntity.ok(checkinService.syncCheckins(request));
+        }
 }

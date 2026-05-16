@@ -3,6 +3,7 @@ package com.unihub.backend.dto.ai;
 public class AiSummaryResponse {
     private Long workshop_id;
     private String summary;
+    private String speaker;
 
     public Long getWorkshop_id() {
         return workshop_id;
@@ -18,5 +19,13 @@ public class AiSummaryResponse {
 
     public void setSummary(String summary) {
         this.summary = summary;
+    }
+
+    public String getSpeaker() {
+        return speaker;
+    }
+
+    public void setSpeaker(String speaker) {
+        this.speaker = speaker;
     }
 }

@@ -1,6 +1,7 @@
 import axiosClient from '../api/axiosClient';
 
 const adminWorkshopUrl = '/admin/workshops';
+const adminStatsUrl = '/admin/stats';
 
 const adminWorkshopService = {
     /**
@@ -73,6 +74,23 @@ const adminWorkshopService = {
      */
     publish(id) {
         return axiosClient.put(`${adminWorkshopUrl}/${id}/publish`);
+    },
+
+    /**
+     * Get paginated attendance list for a workshop (Admin only).
+     * Only SUCCESS registrations are returned.
+     * @param {number} page - 0-indexed page number (default 0)
+     * @param {number} size - items per page (default 5)
+     */
+    getAttendances(id, page = 0, size = 5) {
+        return axiosClient.get(`${adminWorkshopUrl}/${id}/attendances`, { params: { page, size } });
+    },
+
+    /**
+     * Get global statistics across all workshops (Admin only).
+     */
+    getGlobalStats() {
+        return axiosClient.get(adminStatsUrl);
     },
 };
 

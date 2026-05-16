@@ -1,9 +1,13 @@
 package com.unihub.backend.service;
 
 import com.unihub.backend.dto.PageResponse;
+import com.unihub.backend.dto.WorkshopAttendanceResponse;
 import com.unihub.backend.dto.WorkshopRequest;
 import com.unihub.backend.dto.WorkshopResponse;
 import com.unihub.backend.dto.WorkshopStatsResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import com.unihub.backend.entity.Room;
 import com.unihub.backend.entity.Workshop;
 import com.unihub.backend.exception.ConflictException;
@@ -93,7 +97,8 @@ public class WorkshopService {
     /**
      * Paginated version of getPublishedWorkshops (default page size: 12).
      *
-     * @param userId nullable — if authenticated, includes user-specific registration info
+     * @param userId nullable — if authenticated, includes user-specific
+     *               registration info
      * @param page   0-indexed page number
      * @param size   number of items per page (default 12)
      */
@@ -191,8 +196,8 @@ public class WorkshopService {
         long successfulCount = registrationRepository.countByWorkshopIdAndStatus(id, "SUCCESS");
         if (request.totalSlots() < successfulCount) {
             throw new ConflictException(
-                    "Cannot set total_slots to " + request.totalSlots() + 
-                    " because there are already " + successfulCount + " successful registrations.");
+                    "Cannot set total_slots to " + request.totalSlots() +
+                            " because there are already " + successfulCount + " successful registrations.");
         }
 
         // 4. Update all fields
@@ -201,11 +206,11 @@ public class WorkshopService {
         workshop.setRoom(room);
         workshop.setSpeaker(request.speaker());
         workshop.setTotalSlots(request.totalSlots());
-        
+
         // Adjust remaining slots based on the delta
         int delta = request.totalSlots() - oldTotalSlots;
         workshop.setRemainingSlots(currentRemainingSlots + delta);
-        
+
         workshop.setPrice(request.price() != null ? request.price() : 0L);
         workshop.setStartTime(request.startTime());
         workshop.setEndTime(request.endTime());
@@ -352,6 +357,37 @@ public class WorkshopService {
                 .remainingSlots(remainingSlots)
                 .registeredCount(registeredCount)
                 .fillRate(fillRate)
+                .build();
+    }
+
+    /**
+     * Returns the paginated attendance list for a given workshop.
+     * Only includes registrations with {@code status = 'SUCCESS'}.
+     * Records are sorted: checked-in first, then by registration time ascending.
+     *
+     * @param workshopId the workshop ID
+     * @param page       0-indexed page number
+     * @param size       number of records per page
+     * @return paginated attendance records
+     * @throws ResourceNotFoundException if the workshop does not exist
+     */
+    public PageResponse<WorkshopAttendanceResponse> getWorkshopAttendances(
+            Long workshopId, int page, int size) {
+
+        findWorkshopOrThrow(workshopId);
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<WorkshopAttendanceResponse> result = registrationRepository
+                .findAttendancesByWorkshopId(workshopId, pageable)
+                .map(this::toAttendanceResponse);
+
+        return PageResponse.<WorkshopAttendanceResponse>builder()
+                .content(result.getContent())
+                .page(result.getNumber())
+                .size(result.getSize())
+                .totalElements(result.getTotalElements())
+                .totalPages(result.getTotalPages())
+                .last(result.isLast())
                 .build();
     }
 
@@ -502,5 +538,27 @@ public class WorkshopService {
             return workshop.getRemainingSlots();
         }
         return redisSlots;
+    }
+
+    /**
+     * Map a Registration entity (with User and optional CheckinRecord already
+     * fetched) to a {@link WorkshopAttendanceResponse} DTO.
+     */
+    private WorkshopAttendanceResponse toAttendanceResponse(
+            com.unihub.backend.entity.Registration r) {
+
+        boolean checkedIn = r.getCheckinRecord() != null;
+        return WorkshopAttendanceResponse.builder()
+                .registrationId(r.getId())
+                .userId(r.getUser().getId())
+                .studentCode(r.getUser().getStudentCode())
+                .fullName(r.getUser().getFullName())
+                .email(r.getUser().getEmail())
+                .phoneNumber(r.getUser().getPhoneNumber())
+                .registrationStatus(r.getStatus())
+                .registeredAt(r.getCreatedAt())
+                .checkedIn(checkedIn)
+                .checkedInAt(checkedIn ? r.getCheckinRecord().getScannedAt() : null)
+                .build();
     }
 }

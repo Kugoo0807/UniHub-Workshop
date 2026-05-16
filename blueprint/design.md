@@ -364,7 +364,9 @@ Sử dụng `Strategy Pattern` để phát sự kiện thông báo.
 
   + Map từng dòng thành Object. Bọc `try-catch` ở mức độ từng dòng; nếu có một dòng bị lỗi format hoặc thiếu cột, hệ thống chỉ ghi log cảnh báo (Warning) và tự động chạy tiếp dòng sau, không được làm gián đoạn cả tiến trình.
 
-  + Lưu vào PostgreSQL: Sử dụng `UPSERT`.
+  + Tối ưu tốc độ UPSERT: JDBC Batching + Native SQL `ON CONFLICT`.
+
+  + Sử dụng Strategy Pattern và DI cho phương thức cung cấp file CSV.
 
 - Lý do: 
 
