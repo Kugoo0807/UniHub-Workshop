@@ -1,7 +1,22 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- Base application theme (dark). -->
     <style name="Base.Theme.Mobile" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+        <item name="colorPrimary">@color/indigo_200</item>
+        <item name="colorPrimaryContainer">@color/indigo_700</item>
+        <item name="colorOnPrimary">@color/indigo_800</item>
+        <item name="colorOnPrimaryContainer">@color/indigo_100</item>
+        <item name="colorSecondary">@color/emerald_500</item>
+        <item name="colorSecondaryContainer">@color/emerald_700</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorOnSecondaryContainer">@color/emerald_100</item>
+        <item name="colorError">@color/red_500</item>
+        <item name="colorOnError">@color/white</item>
+        <item name="colorSurface">@color/gray_800</item>
+        <item name="colorOnSurface">@color/gray_100</item>
+        <item name="colorOnSurfaceVariant">@color/gray_400</item>
+        <item name="colorOutline">@color/gray_600</item>
+        <item name="android:colorBackground">@color/gray_900</item>
+        <item name="android:statusBarColor">@color/gray_900</item>
+        <item name="android:navigationBarColor">@color/gray_900</item>
     </style>
 </resources>

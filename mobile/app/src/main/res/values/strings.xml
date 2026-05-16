@@ -1,3 +1,18 @@
 <resources>
-    <string name="app_name">mobile</string>
+    <string name="app_name">UniHub Check-in</string>
+    <string name="login_title">UniHub Check-in</string>
+    <string name="login_subtitle">Admin workshop check-in system</string>
+    <string name="email_hint">Email address</string>
+    <string name="password_hint">Password</string>
+    <string name="btn_login">Sign In</string>
+    <string name="btn_logout">Logout</string>
+    <string name="btn_sync">Sync</string>
+    <string name="workshops_title">Workshops</string>
+    <string name="btn_download">Download QR List</string>
+    <string name="btn_scan">Scan QR</string>
+    <string name="btn_scan_again">Scan Another QR</string>
+    <string name="btn_back">Back</string>
+    <string name="btn_back_workshops">Back to Workshops</string>
+    <string name="btn_pick_image">Choose from Gallery</string>
+    <string name="scan_title">QR Scanner</string>
 </resources>

@@ -1,8 +1,23 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
+    <!-- Base application theme (light). -->
     <style name="Base.Theme.Mobile" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <item name="colorPrimary">@color/indigo_600</item>
+        <item name="colorPrimaryContainer">@color/indigo_100</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorOnPrimaryContainer">@color/indigo_900</item>
+        <item name="colorSecondary">@color/emerald_500</item>
+        <item name="colorSecondaryContainer">@color/emerald_100</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorOnSecondaryContainer">@color/emerald_700</item>
+        <item name="colorError">@color/red_600</item>
+        <item name="colorOnError">@color/white</item>
+        <item name="colorSurface">@color/white</item>
+        <item name="colorOnSurface">@color/gray_900</item>
+        <item name="colorOnSurfaceVariant">@color/gray_600</item>
+        <item name="colorOutline">@color/gray_300</item>
+        <item name="android:colorBackground">@color/gray_50</item>
+        <item name="android:statusBarColor">@color/indigo_800</item>
+        <item name="android:navigationBarColor">@color/white</item>
     </style>
 
     <style name="Theme.Mobile" parent="Base.Theme.Mobile" />
