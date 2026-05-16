@@ -57,13 +57,14 @@ public class NotificationRetryScheduler {
 
     private NotificationRecipient buildRecipient(User user) {
         if (user == null) {
-            return new NotificationRecipient(null, "System", null, null);
+            return new NotificationRecipient(null, "System", null, null, null);
         }
         return new NotificationRecipient(
                 user.getId(),
                 user.getFullName(),
                 user.getEmail(),
-                user.getPhoneNumber()
+                user.getPhoneNumber(),
+                user.getChatId()
         );
     }
 }

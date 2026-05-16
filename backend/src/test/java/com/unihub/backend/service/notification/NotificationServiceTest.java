@@ -76,6 +76,7 @@ class NotificationServiceTest {
                 .fullName("Student One")
                 .email("student@unihub.edu.vn")
                 .phoneNumber("+84901234567")
+                .chatId("583920123")
                 .build();
 
         registration = Registration.builder()
@@ -134,7 +135,7 @@ class NotificationServiceTest {
 
         ArgumentCaptor<List<String>> channelsCaptor = ArgumentCaptor.forClass(List.class);
         verify(dispatcher).dispatch(eq(new NotificationRecipient(
-                9L, "Student One", "student@unihub.edu.vn", "+84901234567"
+                9L, "Student One", "student@unihub.edu.vn", "+84901234567", "583920123"
         )), eq(content), channelsCaptor.capture());
 
         List<String> channels = channelsCaptor.getValue();
@@ -169,8 +170,8 @@ class NotificationServiceTest {
 
     @Test
     void handleWorkshopCancelled_success_batchesAndDispatchesAsync() {
-        NotificationRecipient r1 = new NotificationRecipient(1L, "A", "a@x", "0901234567");
-        NotificationRecipient r2 = new NotificationRecipient(2L, "B", "b@x", "+84909998877");
+        NotificationRecipient r1 = new NotificationRecipient(1L, "A", "a@x", "0901234567", "111");
+        NotificationRecipient r2 = new NotificationRecipient(2L, "B", "b@x", "+84909998877", "222");
 
         NotificationContent content = new NotificationContent("Cancel", "<p>cancel</p>");
         when(templateService.buildWorkshopCancelled(eq(r1), any(), any(), any(), any()))
@@ -202,8 +203,8 @@ class NotificationServiceTest {
     }
 
     @Test
-    void handleWorkshopReminder_invalidPhone_excludesTelegram() {
-        NotificationRecipient recipient = new NotificationRecipient(1L, "A", "a@x", "invalid");
+        void handleWorkshopReminder_missingChatId_excludesTelegram() {
+                NotificationRecipient recipient = new NotificationRecipient(1L, "A", "a@x", "invalid", "");
         NotificationContent content = new NotificationContent("Reminder", "<p>R</p>");
         when(templateService.buildWorkshopReminder(eq(recipient), any(), any(), any(), any())).thenReturn(content);
 
@@ -234,7 +235,7 @@ class NotificationServiceTest {
 
     @Test
     void handleCsvSyncCompleted_admins_dispatchesWithoutTelegram() {
-        NotificationRecipient admin = new NotificationRecipient(3L, "Admin", "admin@x", "+84901111111");
+        NotificationRecipient admin = new NotificationRecipient(3L, "Admin", "admin@x", "+84901111111", "");
         NotificationContent content = new NotificationContent("Sync", "<p>sync</p>");
 
         when(userRepository.findRecipientsByRole("ADMIN")).thenReturn(List.of(admin));

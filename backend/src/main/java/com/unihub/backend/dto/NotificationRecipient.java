@@ -4,6 +4,7 @@ public record NotificationRecipient(
         Long userId,
         String fullName,
         String email,
-        String phoneNumber
+        String phoneNumber,
+        String chatId
 ) {
 }

@@ -66,3 +66,7 @@ notification:
   telegram:
     enabled: ${NOTIFICATION_TELEGRAM_ENABLED:true}
     token: ${TELEGRAM_BOT_TOKEN:}
+
+telegram:
+  webhook:
+    token: ${TELEGRAM_WEBHOOK_TOKEN:}

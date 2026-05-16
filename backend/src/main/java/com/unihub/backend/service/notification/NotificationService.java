@@ -72,7 +72,8 @@ public class NotificationService {
                 registration.getUser().getId(),
                 registration.getUser().getFullName(),
                 registration.getUser().getEmail(),
-                registration.getUser().getPhoneNumber()
+            registration.getUser().getPhoneNumber(),
+            registration.getUser().getChatId()
         );
 
         dispatchToRecipient(recipient, content, true);
@@ -138,19 +139,19 @@ public class NotificationService {
         List<String> channels = new ArrayList<>();
         channels.add("EMAIL");
         channels.add("IN_APP");
-        if (includeTelegram && isTelegramEligible(recipient.phoneNumber())) {
+        if (includeTelegram && isTelegramEligible(recipient.chatId())) {
             channels.add("TELEGRAM");
         }
 
         dispatcher.dispatch(recipient, content, channels);
     }
 
-    private boolean isTelegramEligible(String phoneNumber) {
-        if (phoneNumber == null) {
+    private boolean isTelegramEligible(String chatId) {
+        if (chatId == null) {
             return false;
         }
-        String trimmed = phoneNumber.trim();
-        return trimmed.matches("\\+?[0-9]{8,15}");
+        String trimmed = chatId.trim();
+        return !trimmed.isEmpty();
     }
 
     private List<List<NotificationRecipient>> partition(List<NotificationRecipient> items, int size) {

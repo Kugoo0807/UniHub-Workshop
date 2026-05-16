@@ -51,7 +51,7 @@ public class TelegramNotificationStrategy implements NotificationStrategy {
             return;
         }
 
-        if (recipient == null || recipient.phoneNumber() == null || recipient.phoneNumber().isBlank()) {
+        if (recipient == null || recipient.chatId() == null || recipient.chatId().isBlank()) {
             markFailed(notification, "Telegram chat_id is missing");
             return;
         }
@@ -70,7 +70,7 @@ public class TelegramNotificationStrategy implements NotificationStrategy {
                     .replaceAll("(?i)<br[^>]*>", "\n");
 
             Map<String, Object> payload = Map.of(
-                    "chat_id", recipient.phoneNumber(),
+                        "chat_id", recipient.chatId(),
                     "text", telegramMessage,
                     "parse_mode", "HTML"
             );

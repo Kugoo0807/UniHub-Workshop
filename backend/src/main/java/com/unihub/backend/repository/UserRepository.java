@@ -19,7 +19,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @org.springframework.data.jpa.repository.Query("""
             select new com.unihub.backend.dto.NotificationRecipient(
-                u.id, u.fullName, u.email, u.phoneNumber
+                u.id, u.fullName, u.email, u.phoneNumber, u.chatId
             )
             from User u
             where u.role = :role

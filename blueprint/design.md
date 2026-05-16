@@ -201,6 +201,7 @@ Lưu trữ thông tin sinh viên và tài khoản quản trị, hỗ trợ kiể
 | `password` | VARCHAR(255) | NULLABLE | Mật khẩu đã mã hóa (BCrypt) |
 | `role` | VARCHAR(20) | NOT NULL | Quyền: `STUDENT`, `ADMIN`, `STAFF` |
 | `status` | VARCHAR(20) | DEFAULT `INACTIVE` | Trạng thái: `ACTIVE`, `INACTIVE` |
+| `chat_id` | VARCHAR(255) | - | ID của Telegram Chat Bot |
 
 #### 2. Bảng `workshops` (Thông tin sự kiện)
 

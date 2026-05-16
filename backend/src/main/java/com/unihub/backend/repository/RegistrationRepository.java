@@ -59,7 +59,7 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
 
     @Query("""
             select new com.unihub.backend.dto.NotificationRecipient(
-                u.id, u.fullName, u.email, u.phoneNumber
+                                u.id, u.fullName, u.email, u.phoneNumber, u.chatId
             )
             from Registration r
             join r.user u
