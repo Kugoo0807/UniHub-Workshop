@@ -16,6 +16,7 @@ import RegistrationHistoryPage from './pages/RegistrationHistoryPage';
 import Dashboard from './pages/Dashboard';
 import StatisticsPage from './pages/StatisticsPage';
 import NotFoundPage from './pages/NotFoundPage';
+import NotificationsPage from './pages/NotificationsPage';
 
 // Auto-redirect ADMIN to /admin when visiting /
 const HomeRedirect = () => {
@@ -48,6 +49,7 @@ const App = () => {
                                 <Route path="/profile" element={<ProfilePage />} />
                                 <Route path="/workshops" element={<WorkshopListPage />} />
                                 <Route path="/registration-history" element={<RegistrationHistoryPage />} />
+                                <Route path="/notifications" element={<NotificationsPage />} />
                             </Route>
 
                             {/* Admin-only routes */}

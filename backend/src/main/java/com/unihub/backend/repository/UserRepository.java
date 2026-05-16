@@ -6,6 +6,8 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
 
+import com.unihub.backend.dto.NotificationRecipient;
+
 @Repository
 public interface UserRepository extends JpaRepository<User, Long> {
 
@@ -14,4 +16,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmail(String email);
 
     Optional<User> findByStudentCodeAndFullNameAndEmail(String studentCode, String fullName, String email);
+
+    @org.springframework.data.jpa.repository.Query("""
+            select new com.unihub.backend.dto.NotificationRecipient(
+                u.id, u.fullName, u.email, u.phoneNumber
+            )
+            from User u
+            where u.role = :role
+            """)
+    java.util.List<NotificationRecipient> findRecipientsByRole(@org.springframework.data.repository.query.Param("role") String role);
 }
