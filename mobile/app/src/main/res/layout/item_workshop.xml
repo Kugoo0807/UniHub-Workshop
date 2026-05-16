@@ -91,6 +91,48 @@
                 android:textColor="@color/gray_600" />
         </LinearLayout>
 
+        <!-- Seat map toggle button -->
+        <Button
+            android:id="@+id/btnToggleSeatMap"
+            android:layout_width="match_parent"
+            android:layout_height="36dp"
+            android:layout_marginBottom="8dp"
+            android:text="🪑 View Seat Map"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:textColor="@color/indigo_600"
+            android:background="@drawable/bg_button_outlined"
+            android:backgroundTint="@null"
+            android:stateListAnimator="@null"
+            android:visibility="gone" />
+
+        <!-- Seat map image (hidden by default, toggled by button) -->
+        <FrameLayout
+            android:id="@+id/seatMapContainer"
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone"
+            android:background="@color/gray_50">
+
+            <ImageView
+                android:id="@+id/ivSeatMap"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:adjustViewBounds="true"
+                android:scaleType="fitCenter"
+                android:contentDescription="Room seating layout map" />
+
+            <ProgressBar
+                android:id="@+id/seatMapProgress"
+                style="?android:attr/progressBarStyleSmall"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:indeterminate="true"
+                android:visibility="gone" />
+        </FrameLayout>
+
         <!-- Action buttons row 1 -->
         <LinearLayout
             android:layout_width="match_parent"

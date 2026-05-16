@@ -512,6 +512,7 @@ public class WorkshopService {
                 .roomId(w.getRoom().getId())
                 .roomName(w.getRoom().getName())
                 .roomCapacity(w.getRoom().getCapacity())
+                .layoutMapUrl(w.getRoom().getLayoutMapUrl())
                 .speaker(w.getSpeaker())
                 .status(w.getStatus())
                 .userRegistrationStatus(userRegistrationStatus)
