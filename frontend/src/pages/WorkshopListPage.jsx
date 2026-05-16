@@ -303,24 +303,16 @@ const WorkshopListPage = () => {
                                     <span className="font-semibold text-gray-700">
                                         {w.roomName || 'Room TBA'}
                                     </span>
-                                    {w.layoutMapUrl && (
+                                    {w.layoutMapUrl ? (
                                         <span className="rounded-md bg-sky-50 px-2 py-1 font-semibold text-sky-700">
                                             Seat map available
                                         </span>
+                                    ) : (
+                                        <span className="rounded-md bg-gray-100 px-2 py-1 font-semibold text-gray-500">
+                                            No seat map available
+                                        </span>
                                     )}
                                 </div>
-
-                                {w.layoutMapUrl && (
-                                    <img
-                                        src={w.layoutMapUrl}
-                                        alt={getSeatMapAlt(w)}
-                                        loading="lazy"
-                                        className="mt-3 aspect-video w-full max-h-32 rounded-lg border border-gray-100 bg-gray-50 object-contain"
-                                        onError={(event) => {
-                                            event.currentTarget.style.display = 'none';
-                                        }}
-                                    />
-                                )}
 
                                 <div className="mt-2 pt-3 border-t border-gray-50 flex flex-col gap-2.5">
                                     <div className="flex flex-col gap-3">
@@ -439,45 +431,50 @@ const WorkshopListPage = () => {
                             <p className="text-sm text-gray-700 whitespace-pre-wrap">{formatDescription(selectedWorkshop.description)}</p>
                         </div>
 
-                        {/* Seat map (if available) */}
-                        {selectedWorkshop.layoutMapUrl && (
-                            <div className="mt-4 border-t border-gray-50 pt-3">
-                                <h4 className="text-sm font-medium text-gray-500 mb-2">Seat map:</h4>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <button
-                                        onClick={() => {
-                                            setShowSeatMap((s) => !s);
-                                            if (!showSeatMap) {
-                                                setSeatMapLoading(true);
-                                                setSeatMapError('');
-                                            }
-                                        }}
-                                        className="rounded-md border px-3 py-1 text-sm bg-white hover:bg-gray-50"
-                                    >
-                                        {showSeatMap ? 'Hide seat map' : 'View seat map'}
-                                    </button>
-                                </div>
+                        {/* Seat map */}
+                        <div className="mt-4 border-t border-gray-50 pt-3">
+                            <h4 className="text-sm font-medium text-gray-500 mb-2">
+                                Seat map: {!selectedWorkshop.layoutMapUrl && <span className="font-normal italic">Unavailable</span>}
+                            </h4>
 
-                                {showSeatMap && (
-                                    <div className="w-full overflow-hidden rounded-lg border border-gray-100 bg-gray-50 p-3">
-                                        {seatMapLoading && (
-                                            <div className="mb-2 text-sm text-gray-500">Loading seat map...</div>
-                                        )}
-                                        {seatMapError && (
-                                            <div className="mb-2 text-sm text-red-600">Failed to load seat map</div>
-                                        )}
-                                        <img
-                                            src={selectedWorkshop.layoutMapUrl}
-                                            alt={getSeatMapAlt(selectedWorkshop)}
-                                            loading="lazy"
-                                            className="max-h-[55vh] w-full rounded object-contain"
-                                            onLoad={() => setSeatMapLoading(false)}
-                                            onError={() => { setSeatMapLoading(false); setSeatMapError('error'); }}
-                                        />
+                            {selectedWorkshop.layoutMapUrl && (
+                                <>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <button
+                                            onClick={() => {
+                                                setShowSeatMap((s) => !s);
+                                                if (!showSeatMap) {
+                                                    setSeatMapLoading(true);
+                                                    setSeatMapError('');
+                                                }
+                                            }}
+                                            className="rounded-md border px-3 py-1 text-sm bg-white hover:bg-gray-50"
+                                        >
+                                            {showSeatMap ? 'Hide seat map' : 'View seat map'}
+                                        </button>
                                     </div>
-                                )}
-                            </div>
-                        )}
+
+                                    {showSeatMap && (
+                                        <div className="w-full overflow-hidden rounded-lg border border-gray-100 bg-gray-50 p-3">
+                                            {seatMapLoading && (
+                                                <div className="mb-2 text-sm text-gray-500">Loading seat map...</div>
+                                            )}
+                                            {seatMapError && (
+                                                <div className="mb-2 text-sm text-red-600">Failed to load seat map</div>
+                                            )}
+                                            <img
+                                                src={selectedWorkshop.layoutMapUrl}
+                                                alt={getSeatMapAlt(selectedWorkshop)}
+                                                loading="lazy"
+                                                className="max-h-[55vh] w-full rounded object-contain"
+                                                onLoad={() => setSeatMapLoading(false)}
+                                                onError={() => { setSeatMapLoading(false); setSeatMapError('error'); }}
+                                            />
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </div>
 
                         {selectedWorkshop.userRegistrationStatus && (
                             <div className="mt-4">
