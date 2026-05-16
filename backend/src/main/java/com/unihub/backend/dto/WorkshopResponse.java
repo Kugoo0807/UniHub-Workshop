@@ -28,6 +28,9 @@ public class WorkshopResponse {
     @Schema(description = "Room capacity", example = "100")
     private Integer roomCapacity;
 
+    @Schema(description = "Room seating layout map URL", example = "https://example.com/layout.png")
+    private String layoutMapUrl;
+
     @Schema(description = "Speaker name", example = "Nguyen Van A")
     private String speaker;
 
