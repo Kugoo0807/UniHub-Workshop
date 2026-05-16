@@ -7,6 +7,7 @@ import AttendanceModal from '../components/workshops/AttendanceModal';
 import PaginationControl from '../components/common/PaginationControl';
 import CreateAccountModal from '../components/common/CreateAccountModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import toast, { Toaster } from 'react-hot-toast';
 
 const formatDateTime = (dt) => {
     if (!dt) return '—';
@@ -119,13 +120,15 @@ const Dashboard = () => {
             setSubmitting(true);
             if (editingWorkshop) {
                 await adminWorkshopService.update(editingWorkshop.id, payload);
+                toast.success('Workshop updated successfully!');
             } else {
                 await adminWorkshopService.create(payload);
+                toast.success('Workshop created successfully!');
             }
             setModalOpen(false);
             fetchWorkshops({ page: currentPage });
         } catch (err) {
-            setError(err.message);
+            toast.error(err.message || 'Failed to save workshop. Please check your input.');
         } finally {
             setSubmitting(false);
         }

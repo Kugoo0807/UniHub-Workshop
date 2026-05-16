@@ -91,6 +91,20 @@ public interface RegistrationRepository extends JpaRepository<Registration, Long
 
     // ─── Global stats queries ───────────────────────────────────────────────
 
+    /**
+     * Batch count successful registrations for a list of workshop IDs to prevent N+1.
+     * Returns Object[] { workshopId (Long), count (Long) }.
+     */
+    @Query("""
+            SELECT r.workshop.id, COUNT(r)
+            FROM Registration r
+            WHERE r.workshop.id IN :workshopIds AND r.status = :status
+            GROUP BY r.workshop.id
+            """)
+    List<Object[]> countByWorkshopIdsAndStatus(
+            @Param("workshopIds") List<Long> workshopIds,
+            @Param("status") String status);
+
     /** Count all registrations by status. */
     long countByStatus(String status);
 

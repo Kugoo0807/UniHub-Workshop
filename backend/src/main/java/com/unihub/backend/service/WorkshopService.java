@@ -91,10 +91,13 @@ public class WorkshopService {
 
     public List<WorkshopResponse> getPublishedWorkshops(Long userId) {
         Map<Long, String> userRegistrationStatuses = getUserRegistrationStatuses(userId);
+        List<Workshop> workshops = workshopRepository.findAllPublishedWithRoom();
 
-        return workshopRepository.findAllPublishedWithRoom()
-                .stream()
-                .map(workshop -> toResponse(workshop, userRegistrationStatuses.get(workshop.getId())))
+        List<Long> workshopIds = workshops.stream().map(Workshop::getId).toList();
+        Map<Long, Long> successfulCounts = getSuccessfulCountsForWorkshops(workshopIds);
+
+        return workshops.stream()
+                .map(w -> toResponse(w, userRegistrationStatuses.get(w.getId()), successfulCounts.getOrDefault(w.getId(), 0L)))
                 .toList();
     }
 
@@ -112,9 +115,12 @@ public class WorkshopService {
         Page<Workshop> workshopPage = workshopRepository.findAllPublishedWithRoom(
                 PageRequest.of(page, size));
 
+        List<Long> workshopIds = workshopPage.getContent().stream().map(Workshop::getId).toList();
+        Map<Long, Long> successfulCounts = getSuccessfulCountsForWorkshops(workshopIds);
+
         List<WorkshopResponse> content = workshopPage.getContent()
                 .stream()
-                .map(workshop -> toResponse(workshop, userRegistrationStatuses.get(workshop.getId())))
+                .map(w -> toResponse(w, userRegistrationStatuses.get(w.getId()), successfulCounts.getOrDefault(w.getId(), 0L)))
                 .toList();
 
         return PageResponse.<WorkshopResponse>builder()
@@ -145,7 +151,8 @@ public class WorkshopService {
         if (!"PUBLISHED".equals(workshop.getStatus())) {
             throw new ResourceNotFoundException("Workshop not found or is not currently available");
         }
-        return toResponse(workshop, getUserRegistrationStatuses(userId).get(workshop.getId()));
+        long count = registrationRepository.countByWorkshopIdAndStatus(id, "SUCCESS");
+        return toResponse(workshop, getUserRegistrationStatuses(userId).get(workshop.getId()), count);
     }
 
     @Transactional
@@ -156,12 +163,14 @@ public class WorkshopService {
         // 2. Validate all business rules
         validateBusinessRules(request, room);
 
+        String speaker = (request.speaker() == null || request.speaker().isBlank()) ? "TBD" : request.speaker().trim();
+
         // 3. Build entity — status defaults to DRAFT via @Builder.Default
         Workshop workshop = Workshop.builder()
                 .title(request.title())
                 .description(request.description())
                 .room(room)
-                .speaker(request.speaker())
+                .speaker(speaker)
                 // status defaults to "DRAFT" via @Builder.Default
                 .totalSlots(request.totalSlots())
                 .remainingSlots(request.totalSlots())
@@ -196,19 +205,21 @@ public class WorkshopService {
         int oldTotalSlots = workshop.getTotalSlots();
         int currentRemainingSlots = getAccurateRemainingSlots(workshop);
 
-        // 3. Check total_slots and room capacity against successful registrations
-        long successfulCount = registrationRepository.countByWorkshopIdAndStatus(id, "SUCCESS");
-        if (request.totalSlots() < successfulCount) {
+        // 3. Check total_slots and workshop status for update rules
+        boolean isDraft = "DRAFT".equals(workshop.getStatus());
+        if (!isDraft && !Integer.valueOf(oldTotalSlots).equals(request.totalSlots())) {
             throw new ConflictException(
                     "Cannot set total_slots to " + request.totalSlots() +
-                            " because there are already " + successfulCount + " successful registrations.");
+                            " because workshop is not in DRAFT status");
         }
+
+        String speaker = (request.speaker() == null || request.speaker().isBlank()) ? "TBD" : request.speaker().trim();
 
         // 4. Update all fields
         workshop.setTitle(request.title());
         workshop.setDescription(request.description());
         workshop.setRoom(room);
-        workshop.setSpeaker(request.speaker());
+        workshop.setSpeaker(speaker);
         workshop.setTotalSlots(request.totalSlots());
 
         // Adjust remaining slots based on the delta
@@ -499,10 +510,11 @@ public class WorkshopService {
      * Includes room info to avoid N+1 — Room is already fetched via JOIN FETCH.
      */
     private WorkshopResponse toResponse(Workshop w) {
-        return toResponse(w, null);
+        long count = registrationRepository.countByWorkshopIdAndStatus(w.getId(), "SUCCESS");
+        return toResponse(w, null, count);
     }
 
-    private WorkshopResponse toResponse(Workshop w, String userRegistrationStatus) {
+    private WorkshopResponse toResponse(Workshop w, String userRegistrationStatus, long successfulCount) {
         int remainingSlots = getAccurateRemainingSlots(w);
 
         return WorkshopResponse.builder()
@@ -524,7 +536,7 @@ public class WorkshopService {
                 .endTime(w.getEndTime())
                 .registrationStartTime(w.getRegistrationStartTime())
                 .registrationEndTime(w.getRegistrationEndTime())
-                .successfulCount(registrationRepository.countByWorkshopIdAndStatus(w.getId(), "SUCCESS"))
+                .successfulCount(successfulCount)
                 .build();
     }
 
@@ -578,5 +590,25 @@ public class WorkshopService {
                 .checkedIn(checkedIn)
                 .checkedInAt(checkedIn ? r.getCheckinRecord().getScannedAt() : null)
                 .build();
+    }
+
+    /**
+     * Helper to get successful registration counts for a list of workshop IDs in a single query.
+     *
+     * @param workshopIds list of workshop IDs
+     * @return map of workshop ID → successful registration count
+     */
+    private Map<Long, Long> getSuccessfulCountsForWorkshops(List<Long> workshopIds) {
+        if (workshopIds == null || workshopIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Object[]> results = registrationRepository.countByWorkshopIdsAndStatus(workshopIds, "SUCCESS");
+
+        return results.stream()
+                .collect(Collectors.toMap(
+                        row -> (Long) row[0],
+                        row -> (Long) row[1]
+                ));
     }
 }
