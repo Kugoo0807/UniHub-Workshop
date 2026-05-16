@@ -277,6 +277,22 @@ Xử lý check-in offline và đồng bộ dữ liệu.
 | `scanned_at` | TIMESTAMP | NOT NULL | Thời gian quét thực tế tại App |
 | `synced_at` | TIMESTAMP | DEFAULT NOW() | Thời gian server nhận được data sync |
 
+#### 6.Bảng `notifications` (Thông báo)
+
+Hệ thống sử dụng một bảng duy nhất để lưu trữ lịch sử phát thông báo. Để đáp ứng yêu cầu hiển thị chi tiết trên giao diện Web App giống hệt nguyên bản nội dung gửi qua Email, hệ thống sẽ lưu trữ trực tiếp mã HTML đã được render từ Template Engine.
+
+| Column | Type | Constraint | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | SERIAL | PRIMARY KEY | Định danh duy nhất tự tăng. |
+| `user_id` | INTEGER | FOREIGN KEY | Tham chiếu đến `users(id)`. Để `NULL` nếu là thông báo hệ thống chung. |
+| `title` | VARCHAR(255) | NOT NULL | Tiêu đề ngắn gọn hiển thị trên danh sách list thông báo ngoài giao diện. |
+| `content_html` | TEXT | NOT NULL | Lưu trữ toàn bộ chuỗi HTML đã được render hoàn chỉnh (chứa mã QR, cấu trúc bảng,...). Giao diện In-app sẽ trực tiếp nhúng mã HTML này để hiển thị chi tiết. |
+| `channel` | VARCHAR(50) | NOT NULL | Kênh gửi: `IN_APP`, `EMAIL`, `TELEGRAM`. |
+| `status` | VARCHAR(50) | DEFAULT 'PENDING' | Trạng thái gửi ra bên ngoài: `PENDING`, `SUCCESS`, `FAILED`. |
+| `retry_count` | INTEGER | DEFAULT 0 | Số lần hệ thống đã thử gửi lại đối với các kênh gọi API ngoài (Email, Telegram). |
+| `error_message`| TEXT | NULLABLE | Ghi nhận chi tiết nguyên nhân lỗi kết nối để kiểm tra khi cần thiết. |
+| `created_at` | TIMESTAMP | DEFAULT NOW() | Thời điểm tạo thông báo, dùng để sắp xếp giảm dần trên giao diện danh sách. |
+
 ---
 
 ### Lưu ý
@@ -300,9 +316,20 @@ Xử lý check-in offline và đồng bộ dữ liệu.
 Tại Spring Boot, sử dụng Spring Security với `@PreAuthorize("hasRole('ADMIN')")` ở tầng Controller để chặn request trái phép.
 
 ## Thiết kế mở rộng cho Notification
-Sử dụng `Strategy Pattern` để phát sự kiện thông báo.
+Kết hợp kiến trúc `Observer` và `Strategy`
 
-- Có các Listener (EmailListener, TelegramListener) tự bắt sự kiện và gửi đi độc lập.
+- Lớp Decoupling (Observer Pattern): Sử dụng cơ chế Spring Application Event kết hợp với `@Async`. Khi luồng chính hoàn thành, nó chỉ cần **publish** một Event đi rồi kết thúc xử lý ngay lập tức để trả kết quả cho client.
+
+- Lớp Delivery (Strategy Pattern): Các Event Listeners sau khi **subcribe** sự kiện sẽ không tự gửi thông báo, mà sẽ gọi qua `NotificationStrategy` để chọn đúng kênh cần gửi (Email, Telegram, In-app).
+
+- **Dự kiến:** Hệ thống thông báo sẽ chạy trên 4 luồng chính:
+  1. Sinh viên đăng ký workshop thành công (Template cần có đầy đủ thông tin, đặc biệt là mã QR).
+
+  2. Workshop bị hủy (Template thông báo **BẮT BUỘC** đề cập đến vấn đề hoàn tiền tại phòng Công tác sinh viên đối với workshop có thu phí).
+
+  3. Cron job 6h chiều - Thông báo đến các sinh viên có tham gia Workshop hoạt động vào ngày mai.
+
+  4. Đồng bộ CSV hoàn tất - Thông báo đến Admin về quá trình đồng bộ.
 
 ## Thiết kế các cơ chế bảo vệ hệ thống
 
