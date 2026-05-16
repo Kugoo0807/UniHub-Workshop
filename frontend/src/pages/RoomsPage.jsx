@@ -380,7 +380,6 @@ const RoomsPage = () => {
                                     {/* Room Name */}
                                     <td className="px-6 py-4">
                                         <div className="font-semibold text-gray-900">{room.name}</div>
-                                        <div className="text-xs text-gray-400">ID #{room.id}</div>
                                     </td>
 
                                     {/* Capacity */}
@@ -430,32 +429,25 @@ const RoomsPage = () => {
                                             </button>
 
                                             {openActionId === room.id && (
-                                                <div className={`absolute right-0 z-50 w-36 rounded-md border border-gray-200 bg-white py-1 shadow-lg
+                                                <div className={`absolute right-0 z-50 w-28 rounded-md border border-gray-200 bg-white py-1 shadow-lg
                                                     ${idx >= rooms.length - 2 ? 'bottom-full mb-1' : 'mt-1'}`}>
                                                     <button
                                                         onClick={() => { handleEdit(room); setOpenActionId(null); }}
                                                         className="w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-50 transition">
-                                                        ✏️ Edit Details
+                                                        Edit Details
                                                     </button>
                                                     <button
                                                         onClick={() => { setUploadRoom(room); setOpenActionId(null); }}
                                                         className="w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-50 transition">
-                                                        🗺️ {room.layoutMapUrl ? 'Update Map' : 'Upload Map'}
+                                                        {room.layoutMapUrl ? 'Update Map' : 'Upload Map'}
                                                     </button>
-                                                    {room.layoutMapUrl && (
-                                                        <button
-                                                            onClick={() => { setViewMapRoom(room); setOpenActionId(null); }}
-                                                            className="w-full px-3 py-1.5 text-left text-[11px] text-gray-700 hover:bg-gray-50 transition">
-                                                            👁️ View Map
-                                                        </button>
-                                                    )}
                                                     <div className="my-1 border-t border-gray-100" />
                                                     <button
                                                         onClick={() => { setDeleteRoom(room); setOpenActionId(null); }}
                                                         disabled={room.activeWorkshopCount > 0}
                                                         title={room.activeWorkshopCount > 0 ? 'Cannot delete: room has active workshops' : 'Delete room'}
                                                         className="w-full px-3 py-1.5 text-left text-[11px] text-red-600 hover:bg-red-50 transition disabled:opacity-40 disabled:cursor-not-allowed">
-                                                        🗑️ Delete
+                                                        Delete
                                                     </button>
                                                 </div>
                                             )}

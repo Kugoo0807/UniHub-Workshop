@@ -203,7 +203,6 @@ const StatisticsPage = () => {
                     </div>
                     <div className="flex items-center gap-2 rounded-2xl bg-indigo-50 p-1.5">
                         <button className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-indigo-600 shadow-sm">All Time</button>
-                        <button className="rounded-xl px-4 py-2 text-sm font-bold text-gray-500 hover:text-gray-700">Recent</button>
                     </div>
                 </div>
 

@@ -271,7 +271,7 @@ const Dashboard = () => {
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => navigate('/admin/rooms')}
-                            className="flex items-center gap-2 rounded-xl bg-white border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 transition-all"
+                            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md hover:from-violet-700 hover:to-indigo-700 transition-all"
                         >
                             <span>🏛️</span>
                             Manage Rooms
