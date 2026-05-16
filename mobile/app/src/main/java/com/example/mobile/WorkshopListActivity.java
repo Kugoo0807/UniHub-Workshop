@@ -6,14 +6,18 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.lifecycle.LiveData;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.work.WorkInfo;
+import androidx.work.WorkManager;
 
 import com.example.mobile.data.remote.ApiService;
 import com.example.mobile.data.remote.RetrofitClient;
@@ -29,6 +33,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 import com.google.android.material.tabs.TabLayout;
 
@@ -44,6 +49,9 @@ public class WorkshopListActivity extends AppCompatActivity {
     private CheckinRepository repository;
     private TabLayout tabLayout;
     private List<WorkshopResponse> allWorkshops = new ArrayList<>();
+    private Button btnSyncAll;
+    private ProgressBar syncProgress;
+    private boolean isSyncInProgress = false;
 
     // Input format from backend (ISO-8601 without timezone)
     private static final SimpleDateFormat ISO_FORMAT =
@@ -85,12 +93,40 @@ public class WorkshopListActivity extends AppCompatActivity {
             finish();
         });
 
-        findViewById(R.id.btnSyncAll).setOnClickListener(v -> {
-            repository.triggerBackgroundSync();
-            Toast.makeText(this, "Manual sync triggered", Toast.LENGTH_SHORT).show();
-        });
+        btnSyncAll = findViewById(R.id.btnSyncAll);
+        syncProgress = findViewById(R.id.syncProgress);
+        btnSyncAll.setOnClickListener(v -> triggerManualSync());
 
         loadWorkshops();
+    }
+
+    private void triggerManualSync() {
+        if (isSyncInProgress) {
+            return;
+        }
+
+        isSyncInProgress = true;
+        btnSyncAll.setEnabled(false);
+        syncProgress.setVisibility(View.VISIBLE);
+
+        UUID workId = repository.triggerBackgroundSync();
+        LiveData<WorkInfo> workLiveData = WorkManager.getInstance(this)
+                .getWorkInfoByIdLiveData(workId);
+        workLiveData.observe(this, workInfo -> {
+            if (workInfo == null || !workInfo.getState().isFinished()) {
+                return;
+            }
+
+            workLiveData.removeObservers(this);
+
+            boolean isSuccess = workInfo.getState() == WorkInfo.State.SUCCEEDED;
+            String message = isSuccess ? "Sync completed" : "Sync failed";
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+
+            isSyncInProgress = false;
+            btnSyncAll.setEnabled(true);
+            syncProgress.setVisibility(View.GONE);
+        });
     }
 
     private void loadWorkshops() {

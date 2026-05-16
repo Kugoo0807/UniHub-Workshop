@@ -18,6 +18,7 @@ import com.example.mobile.sync.CheckinSyncWorker;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -62,7 +63,23 @@ public class CheckinRepository {
                         callback.onSuccess();
                     }).start();
                 } else {
-                    callback.onError("Failed to download: " + response.code());
+                    String errorMsg = "Failed to download";
+
+                    if (response.errorBody() != null) {
+                        try {
+                            String errorJson = response.errorBody().string();
+                            org.json.JSONObject jsonObject = new org.json.JSONObject(errorJson);
+                            String serverMessage = jsonObject.getString("message");
+
+                            if ("Cannot download attendees while registration is still open.".equals(serverMessage)) {
+                                errorMsg += "\nRegistration is still open";
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            errorMsg = "Error parsing server response";
+                        }
+                    }
+                    callback.onError(errorMsg);
                 }
             }
 
@@ -73,7 +90,7 @@ public class CheckinRepository {
         });
     }
 
-    public void triggerBackgroundSync() {
+    public UUID triggerBackgroundSync() {
         Constraints constraints = new Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build();
@@ -83,6 +100,7 @@ public class CheckinRepository {
                 .build();
 
         WorkManager.getInstance(context).enqueue(syncRequest);
+        return syncRequest.getId();
     }
 
     public interface DownloadCallback {

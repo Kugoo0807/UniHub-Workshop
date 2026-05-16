@@ -47,6 +47,16 @@
             android:paddingHorizontal="12dp"
             android:stateListAnimator="@null" />
 
+        <ProgressBar
+            android:id="@+id/syncProgress"
+            style="?android:attr/progressBarStyleSmall"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginStart="6dp"
+            android:indeterminate="true"
+            android:indeterminateTint="@color/white"
+            android:visibility="gone" />
+
         <!-- Logout button -->
         <Button
             android:id="@+id/btnLogout"
