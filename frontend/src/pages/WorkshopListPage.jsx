@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import workshopService from '../services/workshopService';
 import workshopRegistrationService from '../services/workshopRegistrationService';
@@ -23,6 +23,11 @@ const formatDescription = (description) => {
     return text || 'This workshop does not have a description yet.';
 };
 
+const getSeatMapAlt = (workshop) => {
+    const roomName = workshop?.roomName ? ` for ${workshop.roomName}` : '';
+    return `Seat map${roomName}`;
+};
+
 const getRegistrationState = (workshop) => {
     if (!workshop?.userRegistrationStatus) return null;
 
@@ -44,7 +49,7 @@ const isRegistrationOpen = (w) => {
         const start = w.registrationStartTime ? new Date(w.registrationStartTime) : new Date(w.startTime);
         const end = w.registrationEndTime ? new Date(w.registrationEndTime) : new Date(w.endTime);
         return now >= start && now <= end;
-    } catch (e) {
+    } catch {
         return true; // if parsing fails, default to allow registration and let backend enforce
     }
 };
@@ -54,7 +59,7 @@ const isRegistrationClosed = (w) => {
         const now = new Date();
         const end = w.registrationEndTime ? new Date(w.registrationEndTime) : new Date(w.endTime);
         return now > end;
-    } catch (e) {
+    } catch {
         return false; // if parsing fails, default to not closed and let backend enforce
     }
 };
@@ -64,7 +69,7 @@ const isRegistrationStarted = (w) => {
         const now = new Date();
         const start = w.registrationStartTime ? new Date(w.registrationStartTime) : null;
         return start && now >= start;
-    } catch (e) {
+    } catch {
         return false; // if parsing fails, default to not started and let backend enforce
     }
 };
@@ -87,6 +92,25 @@ const WorkshopListPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [selectedWorkshop, setSelectedWorkshop] = useState(null);
+    const [showSeatMap, setShowSeatMap] = useState(false);
+    const [seatMapLoading, setSeatMapLoading] = useState(false);
+    const [seatMapError, setSeatMapError] = useState('');
+
+    const resetSeatMapState = () => {
+        setShowSeatMap(false);
+        setSeatMapLoading(false);
+        setSeatMapError('');
+    };
+
+    const handleSelectWorkshop = (workshop) => {
+        resetSeatMapState();
+        setSelectedWorkshop(workshop);
+    };
+
+    const handleCloseWorkshop = () => {
+        resetSeatMapState();
+        setSelectedWorkshop(null);
+    };
     const [isRegistering, setIsRegistering] = useState(false);
     const [showPaymentModal, setShowPaymentModal] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -98,13 +122,13 @@ const WorkshopListPage = () => {
     const [totalPages, setTotalPages] = useState(0);
     const [totalElements, setTotalElements] = useState(0);
 
-    const fetchWorkshops = async (page = currentPage) => {
+    const fetchWorkshops = useCallback(async (page = 0) => {
         const data = await workshopService.getAll(page, PAGE_SIZE);
         setWorkshops(data.content || []);
         setCurrentPage(data.page);
         setTotalPages(data.totalPages);
         setTotalElements(data.totalElements);
-    };
+    }, []);
 
     const handleRegister = async () => {
         if (!selectedWorkshop) return;
@@ -119,7 +143,7 @@ const WorkshopListPage = () => {
                 workshopId: selectedWorkshop.id,
             };
             setRegistrationData(dataWithTitle);
-            await fetchWorkshops();
+            await fetchWorkshops(currentPage);
 
             if (response.paidFlow) {
                 // Show payment modal for paid workshops
@@ -128,7 +152,7 @@ const WorkshopListPage = () => {
                 // Show success modal for free workshops
                 setShowSuccessModal(true);
             }
-            setSelectedWorkshop(null);
+            handleCloseWorkshop();
         } catch (error) {
             const status = error.response?.status;
             if (status === 409) {
@@ -165,12 +189,12 @@ const WorkshopListPage = () => {
                         qrCode: paymentResponse.qrCode,
                     }));
                 }
-                await fetchWorkshops();
+                await fetchWorkshops(currentPage);
                 setShowPaymentModal(false);
                 setShowSuccessModal(true);
             } else {
                 setRegistrationError(`Payment failed: ${paymentResponse.message}`);
-                await fetchWorkshops();
+                await fetchWorkshops(currentPage);
             }
         } catch (error) {
             const status = error.response?.status;
@@ -181,7 +205,7 @@ const WorkshopListPage = () => {
             } else {
                 setRegistrationError(error.response?.data?.message || error.message || 'Payment failed');
             }
-            await fetchWorkshops();
+            await fetchWorkshops(currentPage);
         } finally {
             setIsRegistering(false);
         }
@@ -198,7 +222,7 @@ const WorkshopListPage = () => {
             }
         };
         loadWorkshops();
-    }, []);
+    }, [fetchWorkshops]);
 
     if (loading) {
         return (
@@ -256,7 +280,7 @@ const WorkshopListPage = () => {
                                             ? 'border-amber-300 ring-2 ring-amber-200 bg-amber-50/30 shadow-amber-100/60'
                                             : 'border-gray-100'
                                 }`}
-                                onClick={() => setSelectedWorkshop(w)}
+                                onClick={() => handleSelectWorkshop(w)}
                             >
                                 <div className="flex items-start justify-between">
                                     <h3 className="text-base font-semibold text-gray-900 group-hover:text-indigo-600 transition">
@@ -274,6 +298,29 @@ const WorkshopListPage = () => {
                                 </div>
 
                                 <p className="mt-2 text-sm text-gray-500 line-clamp-2">{formatDescription(w.description)}</p>
+
+                                <div className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-500">
+                                    <span className="font-semibold text-gray-700">
+                                        {w.roomName || 'Room TBA'}
+                                    </span>
+                                    {w.layoutMapUrl && (
+                                        <span className="rounded-md bg-sky-50 px-2 py-1 font-semibold text-sky-700">
+                                            Seat map available
+                                        </span>
+                                    )}
+                                </div>
+
+                                {w.layoutMapUrl && (
+                                    <img
+                                        src={w.layoutMapUrl}
+                                        alt={getSeatMapAlt(w)}
+                                        loading="lazy"
+                                        className="mt-3 aspect-video w-full max-h-32 rounded-lg border border-gray-100 bg-gray-50 object-contain"
+                                        onError={(event) => {
+                                            event.currentTarget.style.display = 'none';
+                                        }}
+                                    />
+                                )}
 
                                 <div className="mt-2 pt-3 border-t border-gray-50 flex flex-col gap-2.5">
                                     <div className="flex flex-col gap-3">
@@ -336,7 +383,7 @@ const WorkshopListPage = () => {
 
             {/* Workshop Detail Modal */}
             {selectedWorkshop && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelectedWorkshop(null)}>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={handleCloseWorkshop}>
                     <div
                         className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] overflow-y-auto"
                         onClick={(e) => e.stopPropagation()}
@@ -347,6 +394,13 @@ const WorkshopListPage = () => {
                             <div className="flex items-start gap-2">
                                 <span className="text-sm font-medium text-gray-500 w-36 shrink-0">Time:</span>
                                 <span className="text-sm text-gray-700 font-semibold">{formatDateTime(selectedWorkshop.startTime)}</span>
+                            </div>
+                            <div className="flex items-start gap-2">
+                                <span className="text-sm font-medium text-gray-500 w-36 shrink-0">Room:</span>
+                                <span className="text-sm text-gray-700">
+                                    {selectedWorkshop.roomName || 'Room TBA'}
+                                    {selectedWorkshop.roomCapacity ? ` (${selectedWorkshop.roomCapacity} seats)` : ''}
+                                </span>
                             </div>
                             <div className="flex items-start gap-2">
                                 <span className="text-sm font-medium text-gray-500 w-36 shrink-0">Ends:</span>
@@ -385,6 +439,46 @@ const WorkshopListPage = () => {
                             <p className="text-sm text-gray-700 whitespace-pre-wrap">{formatDescription(selectedWorkshop.description)}</p>
                         </div>
 
+                        {/* Seat map (if available) */}
+                        {selectedWorkshop.layoutMapUrl && (
+                            <div className="mt-4 border-t border-gray-50 pt-3">
+                                <h4 className="text-sm font-medium text-gray-500 mb-2">Seat map:</h4>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <button
+                                        onClick={() => {
+                                            setShowSeatMap((s) => !s);
+                                            if (!showSeatMap) {
+                                                setSeatMapLoading(true);
+                                                setSeatMapError('');
+                                            }
+                                        }}
+                                        className="rounded-md border px-3 py-1 text-sm bg-white hover:bg-gray-50"
+                                    >
+                                        {showSeatMap ? 'Hide seat map' : 'View seat map'}
+                                    </button>
+                                </div>
+
+                                {showSeatMap && (
+                                    <div className="w-full overflow-hidden rounded-lg border border-gray-100 bg-gray-50 p-3">
+                                        {seatMapLoading && (
+                                            <div className="mb-2 text-sm text-gray-500">Loading seat map...</div>
+                                        )}
+                                        {seatMapError && (
+                                            <div className="mb-2 text-sm text-red-600">Failed to load seat map</div>
+                                        )}
+                                        <img
+                                            src={selectedWorkshop.layoutMapUrl}
+                                            alt={getSeatMapAlt(selectedWorkshop)}
+                                            loading="lazy"
+                                            className="max-h-[55vh] w-full rounded object-contain"
+                                            onLoad={() => setSeatMapLoading(false)}
+                                            onError={() => { setSeatMapLoading(false); setSeatMapError('error'); }}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         {selectedWorkshop.userRegistrationStatus && (
                             <div className="mt-4">
                                 <h4 className="text-sm font-medium text-gray-500 mb-1">Registration status:</h4>
@@ -406,7 +500,7 @@ const WorkshopListPage = () => {
 
                             <div className="mt-6 flex justify-end gap-3">
                             <button
-                                onClick={() => setSelectedWorkshop(null)}
+                                onClick={handleCloseWorkshop}
                                 disabled={isRegistering}
                                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
                             >
@@ -442,7 +536,7 @@ const WorkshopListPage = () => {
                         if (registrationData?.workshopId) {
                             try {
                                 await workshopRegistrationService.cancelRegistration(registrationData.workshopId);
-                                await fetchWorkshops();
+                                await fetchWorkshops(currentPage);
                             } catch (e) {
                                 console.error('Failed to cancel registration:', e);
                             }
