@@ -65,15 +65,19 @@ const NotificationsPage = () => {
             setCurrentPage(data.page ?? page);
             setTotalPages(data.totalPages ?? 1);
             setTotalElements(data.totalElements ?? items.length);
-            if (items.length > 0 && !items.find((item) => item.id === selectedId)) {
-                setSelectedId(items[0].id);
-            }
+            
+            setSelectedId((prevId) => {
+                if (items.length > 0 && !items.find((item) => item.id === prevId)) {
+                    return items[0].id;
+                }
+                return prevId;
+            });
         } catch (err) {
             setError(err.message || 'Failed to load notifications.');
         } finally {
             setLoading(false);
         }
-    }, [selectedId]);
+    }, []);
 
     useEffect(() => {
         fetchNotifications(0);
