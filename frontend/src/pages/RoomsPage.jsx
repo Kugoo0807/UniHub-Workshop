@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import adminRoomService from '../services/adminRoomService';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -228,6 +229,7 @@ const DeleteConfirmModal = ({ room, onConfirm, onClose, isDeleting }) => (
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const RoomsPage = () => {
+    const navigate = useNavigate();
     const [rooms, setRooms] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -322,21 +324,38 @@ const RoomsPage = () => {
     // ── Render ───────────────────────────────────────────────────────────────
 
     return (
-        <div className="min-h-screen bg-gray-50 p-6 mx-auto max-w-6xl">
-            {/* Header */}
-            <div className="mb-6 flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900">Room Management</h1>
-                    <p className="mt-1 text-sm text-gray-500">
-                        {rooms.length} room{rooms.length !== 1 ? 's' : ''} configured
-                    </p>
+        <div className="min-h-screen bg-[#fafafa] pb-12 font-sans antialiased">
+            {/* ── Navbar ── */}
+            <nav className="sticky top-0 z-40 border-b border-gray-200/50 bg-white/80 backdrop-blur-xl">
+                <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+                    <button onClick={() => navigate('/admin')}
+                        className="group flex items-center gap-2 rounded-xl bg-gray-50 px-4 py-2 text-sm font-bold text-gray-600 transition-all hover:bg-gray-100 hover:text-indigo-600">
+                        <svg className="h-4 w-4 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Exit to Dashboard
+                    </button>
+                    <div className="flex items-center gap-3">
+                        <span className="text-[13px] font-black uppercase tracking-widest text-gray-400">Admin Panel</span>
+                    </div>
                 </div>
-                <button onClick={handleCreate}
-                    className="flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 transition">
-                    <span className="text-lg leading-none">+</span>
-                    Create Room
-                </button>
-            </div>
+            </nav>
+
+            <main className="mx-auto max-w-7xl px-6 pt-10 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                    <div className="space-y-1">
+                        <h1 className="text-4xl font-black tracking-tight text-gray-900">Room Management</h1>
+                        <p className="text-[15px] font-medium text-gray-400">
+                            {rooms.length} room{rooms.length !== 1 ? 's' : ''} configured
+                        </p>
+                    </div>
+                    <button onClick={handleCreate}
+                        className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_14px_0_rgb(79,70,229,0.39)] hover:shadow-[0_6px_20px_rgba(79,70,229,0.23)] hover:bg-indigo-700 transition">
+                        <span className="text-lg leading-none">+</span>
+                        Create Room
+                    </button>
+                </div>
 
             {/* Alerts */}
             {success && (
@@ -492,6 +511,7 @@ const RoomsPage = () => {
                     isDeleting={deleting}
                 />
             )}
+            </main>
         </div>
     );
 };
