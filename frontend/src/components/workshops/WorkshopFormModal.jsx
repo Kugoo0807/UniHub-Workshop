@@ -91,6 +91,13 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
         maxRegistrationEndTime = new Date(maxEnd.getTime() - tzOffset).toISOString().slice(0, 16);
     }
 
+    // Calculate today's date for limiting past date selection
+    const todayObj = new Date();
+    const tzOffsetToday = todayObj.getTimezoneOffset() * 60000;
+    const localNow = new Date(todayObj.getTime() - tzOffsetToday);
+    const todayStr = localNow.toISOString().split('T')[0];
+    const todayDateTime = localNow.toISOString().slice(0, 16);
+
     const handleSubmit = (e) => {
         e.preventDefault();
         setError('');
@@ -104,11 +111,7 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
         // V6: Price >= 0
         if (Number(form.price) < 0) { setError('Price cannot be negative'); return; }
 
-        // V10: Total slots <= room capacity
-        if (selectedRoom && Number(form.totalSlots) > selectedRoom.capacity) {
-            setError(`Total slots exceeds room capacity (${selectedRoom.capacity})`);
-            return;
-        }
+        // Let the Backend validate the room capacity rule
 
         // New Constraint: Cannot reduce slots below existing successful registrations
         if (initialData && initialData.successfulCount && Number(form.totalSlots) < initialData.successfulCount) {
@@ -139,20 +142,20 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
             setError('Registration end time must be after registration start time');
             return;
         }
+        
+        // V7: Registration start date cannot be before today
+        const todayStartOfDay = new Date(`${todayStr}T00:00:00`);
+        if (new Date(form.registrationStartTime) < todayStartOfDay) {
+            setError('Registration start date cannot be in the past');
+            return;
+        }
+        
         // V5: registrationStartTime < startTime
         if (new Date(form.registrationStartTime) >= new Date(startTime)) {
             setError('Registration must start before the workshop begins');
             return;
         }
-        // V5b: registrationEndTime <= startTime - 1 day
-        const startDT = new Date(startTime);
-        const regEndDT = new Date(form.registrationEndTime);
-        const oneDayInMs = 24 * 60 * 60 * 1000;
-
-        if (startDT.getTime() - regEndDT.getTime() < oneDayInMs) {
-            setError('Registration must close at least 1 day before the workshop starts');
-            return;
-        }
+        // Let the Backend validate the 1-day buffer rule so we can demo the API error response!
 
         const payload = {
             title: form.title.trim(),
@@ -186,7 +189,7 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
                     <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>
                 )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                     {/* Title */}
                     <div>
                         <label className="mb-1 block text-sm font-medium text-gray-700">Title *</label>
@@ -259,8 +262,6 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
                             <input
                                 name="totalSlots"
                                 type="number"
-                                min="1"
-                                max={selectedRoom?.capacity}
                                 value={form.totalSlots}
                                 onChange={handleChange}
                                 className={inputClass}
@@ -272,7 +273,6 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
                             <input
                                 name="price"
                                 type="number"
-                                min="0"
                                 value={form.price}
                                 onChange={handleChange}
                                 className={inputClass}
@@ -287,6 +287,7 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
                         <input
                             name="workshopDate"
                             type="date"
+                            min={todayStr}
                             value={form.workshopDate}
                             onChange={handleChange}
                             className={inputClass}
@@ -311,7 +312,6 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
                                 type="time"
                                 value={form.workshopEndTime}
                                 onChange={handleChange}
-                                min={form.workshopStartTime}
                                 className={inputClass}
                             />
                         </div>
@@ -326,6 +326,7 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
                                 type="datetime-local"
                                 value={form.registrationStartTime}
                                 onChange={handleChange}
+                                min={`${todayStr}T00:00`}
                                 max={form.registrationEndTime || maxRegistrationEndTime}
                                 className={inputClass}
                             />
@@ -337,7 +338,7 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
                                 type="datetime-local"
                                 value={form.registrationEndTime}
                                 onChange={handleChange}
-                                min={form.registrationStartTime}
+                                min={form.registrationStartTime || `${todayStr}T00:00`}
                                 max={maxRegistrationEndTime}
                                 className={inputClass}
                             />
