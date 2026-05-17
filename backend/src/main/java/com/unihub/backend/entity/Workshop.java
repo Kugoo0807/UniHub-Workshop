@@ -27,7 +27,8 @@ public class Workshop {
     private Room room;
 
     @Column(nullable = false)
-    private String speaker;
+    @Builder.Default
+    private String speaker = "TBD";
 
     @Column(nullable = false, length = 20)
     @Builder.Default

@@ -18,7 +18,6 @@ public record WorkshopRequest(
     @Schema(description = "ID of the room where the workshop will be held", example = "1")
     Long roomId,
 
-    @NotBlank(message = "Speaker is required")
     @Size(max = 255, message = "Speaker name must not exceed 255 characters")
     @Schema(description = "Speaker / presenter name", example = "Nguyen Van A")
     String speaker,

@@ -12,6 +12,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ParameterizedPreparedStatementSetter;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.SimpleTransactionStatus;
@@ -38,6 +39,9 @@ class StudentSyncServiceTest {
     @Mock
     private PlatformTransactionManager transactionManager;
 
+        @Mock
+        private ApplicationEventPublisher eventPublisher;
+
     private StudentSyncProperties properties;
 
     private StudentSyncService studentSyncService;
@@ -52,7 +56,8 @@ class StudentSyncServiceTest {
                 List.of(csvFetchStrategy),
                 properties,
                 jdbcTemplate,
-                transactionManager
+                transactionManager,
+                eventPublisher
         );
 
         lenient().when(csvFetchStrategy.getStrategyName()).thenReturn("SUPABASE_HTTP");

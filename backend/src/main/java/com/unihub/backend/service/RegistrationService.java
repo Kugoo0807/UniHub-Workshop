@@ -10,6 +10,7 @@ import com.unihub.backend.entity.Registration;
 import com.unihub.backend.entity.User;
 import com.unihub.backend.entity.Workshop;
 import com.unihub.backend.enums.IdempotencyState;
+import com.unihub.backend.event.WorkshopRegistrationSuccessEvent;
 import com.unihub.backend.exception.*;
 import com.unihub.backend.repository.PaymentRepository;
 import com.unihub.backend.repository.RegistrationRepository;
@@ -17,14 +18,17 @@ import com.unihub.backend.repository.UserRepository;
 import com.unihub.backend.repository.WorkshopRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +43,7 @@ public class RegistrationService {
     private final SeatLockingService seatLockingService;
     private final IdempotencyService idempotencyService;
     private final PaymentGatewayClient paymentGatewayClient;
+    private final ApplicationEventPublisher eventPublisher;
 
     private static final Duration HOLD_TTL = Duration.ofMinutes(10);
     private static final Duration IDEMPOTENCY_TTL = Duration.ofHours(24);
@@ -102,6 +107,7 @@ public class RegistrationService {
             Registration saved = registrationRepository.save(reg);
 
             if (w.getPrice() == 0L) {
+                eventPublisher.publishEvent(new WorkshopRegistrationSuccessEvent(saved.getId()));
                 return RegistrationResponse.success(saved.getQrCode());
             } else {
                 String suggestedIdempotencyKey = UUID.randomUUID().toString();
@@ -186,6 +192,8 @@ public class RegistrationService {
                 reg.setQrCode(generateQrCode());
                 registrationRepository.save(reg);
 
+                eventPublisher.publishEvent(new WorkshopRegistrationSuccessEvent(reg.getId()));
+
                 idempotencyService.storeResult(idempotencyKey,
                         IdempotencyResult.builder().status("SUCCESS").transactionId(result.getTransactionId()).build(),
                         IDEMPOTENCY_TTL);
@@ -238,16 +246,24 @@ public class RegistrationService {
 
     @Transactional(readOnly = true)
     public List<UserRegistrationResponse> getUserRegistrations(Long userId) {
-        return registrationRepository.findAllByUserIdWithWorkshop(userId).stream()
+        List<Registration> registrations = registrationRepository.findAllByUserIdWithWorkshop(userId);
+
+        if (registrations.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> registrationIds = registrations.stream().map(Registration::getId).toList();
+        Map<Long, String> paymentsByRegistrationId = paymentRepository.findByRegistrationIdIn(registrationIds).stream()
+                .collect(Collectors.toMap(p -> p.getRegistration().getId(), Payment::getIdempotencyKey));
+
+        return registrations.stream()
                 .map(registration -> UserRegistrationResponse.builder()
                         .registrationId(registration.getId())
                         .workshopId(registration.getWorkshop().getId())
                         .title(registration.getWorkshop().getTitle())
                         .status(registration.getStatus())
                 .qrCode("SUCCESS".equals(registration.getStatus()) ? registration.getQrCode() : null)
-                .paymentIdempotencyKey(paymentRepository.findByRegistrationId(registration.getId())
-                    .map(Payment::getIdempotencyKey)
-                    .orElse(null))
+                .paymentIdempotencyKey(paymentsByRegistrationId.get(registration.getId()))
                 .startTime(registration.getWorkshop().getStartTime())
                 .endTime(registration.getWorkshop().getEndTime())
                         .createdAt(registration.getCreatedAt())
@@ -269,6 +285,12 @@ public class RegistrationService {
                 registrationRepository.findAllByUserIdWithWorkshop(userId,
                         org.springframework.data.domain.PageRequest.of(page, size));
 
+        List<Long> registrationIds = regPage.getContent().stream().map(Registration::getId).toList();
+        Map<Long, String> paymentsByRegistrationId = registrationIds.isEmpty()
+                ? Map.of()
+                : paymentRepository.findByRegistrationIdIn(registrationIds).stream()
+                .collect(Collectors.toMap(p -> p.getRegistration().getId(), Payment::getIdempotencyKey));
+
         List<UserRegistrationResponse> content = regPage.getContent().stream()
                 .map(registration -> UserRegistrationResponse.builder()
                         .registrationId(registration.getId())
@@ -276,9 +298,7 @@ public class RegistrationService {
                         .title(registration.getWorkshop().getTitle())
                         .status(registration.getStatus())
                         .qrCode("SUCCESS".equals(registration.getStatus()) ? registration.getQrCode() : null)
-                        .paymentIdempotencyKey(paymentRepository.findByRegistrationId(registration.getId())
-                                .map(Payment::getIdempotencyKey)
-                                .orElse(null))
+                        .paymentIdempotencyKey(paymentsByRegistrationId.get(registration.getId()))
                         .startTime(registration.getWorkshop().getStartTime())
                         .endTime(registration.getWorkshop().getEndTime())
                         .createdAt(registration.getCreatedAt())

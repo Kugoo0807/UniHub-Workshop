@@ -97,8 +97,6 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
 
         // V1: Title required
         if (!form.title.trim()) { setError('Title is required'); return; }
-        // V7: Speaker required
-        if (!form.speaker.trim()) { setError('Speaker is required'); return; }
         // V8: Room required
         if (!form.roomId) { setError('Please select a room'); return; }
         // V2: Total slots > 0
@@ -218,7 +216,7 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
                     {/* Speaker & Room */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="mb-1 block text-sm font-medium text-gray-700">Speaker *</label>
+                            <label className="mb-1 block text-sm font-medium text-gray-700">Speaker</label>
                             <input
                                 name="speaker"
                                 value={form.speaker}

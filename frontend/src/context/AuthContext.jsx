@@ -18,6 +18,7 @@ export const AuthProvider = ({ children }) => {
             email: profile.email,
             studentCode: profile.studentCode,
             phoneNumber: profile.phoneNumber,
+            chatId: profile.chatId,
             status: profile.status,
         });
 
@@ -59,6 +60,10 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const refreshProfile = async () => {
+        return loadCurrentUser();
+    };
+
     const logout = () => {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
@@ -73,7 +78,8 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated: !!user,
         isLoading,
         login,
-        logout
+        logout,
+        refreshProfile
     };
 
     return (

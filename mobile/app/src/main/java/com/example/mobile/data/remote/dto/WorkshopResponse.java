@@ -25,4 +25,9 @@ public class WorkshopResponse {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    private String layoutMapUrl;
+
+    public String getLayoutMapUrl() { return layoutMapUrl; }
+    public void setLayoutMapUrl(String layoutMapUrl) { this.layoutMapUrl = layoutMapUrl; }
 }

@@ -6,6 +6,8 @@ import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -36,6 +38,8 @@ import java.util.Locale;
 import java.util.UUID;
 
 import com.google.android.material.tabs.TabLayout;
+
+import com.bumptech.glide.Glide;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -235,6 +239,52 @@ public class WorkshopListActivity extends AppCompatActivity {
                     break;
             }
 
+            // Seat map handling
+            String layoutMapUrl = w.getLayoutMapUrl();
+            if (layoutMapUrl != null && !layoutMapUrl.isEmpty()) {
+                holder.btnToggleSeatMap.setVisibility(View.VISIBLE);
+                // Reset state when recycled
+                holder.seatMapContainer.setVisibility(View.GONE);
+                holder.btnToggleSeatMap.setText("🪑 View Seat Map");
+
+                holder.btnToggleSeatMap.setOnClickListener(v -> {
+                    if (holder.seatMapContainer.getVisibility() == View.GONE) {
+                        holder.seatMapContainer.setVisibility(View.VISIBLE);
+                        holder.btnToggleSeatMap.setText("🪑 Hide Seat Map");
+                        holder.seatMapProgress.setVisibility(View.VISIBLE);
+
+                        Glide.with(WorkshopListActivity.this)
+                                .load(layoutMapUrl)
+                                .fitCenter()
+                                .into(new com.bumptech.glide.request.target.CustomTarget<android.graphics.drawable.Drawable>() {
+                                    @Override
+                                    public void onResourceReady(@NonNull android.graphics.drawable.Drawable resource,
+                                            com.bumptech.glide.request.transition.Transition<? super android.graphics.drawable.Drawable> transition) {
+                                        holder.seatMapProgress.setVisibility(View.GONE);
+                                        holder.ivSeatMap.setImageDrawable(resource);
+                                    }
+
+                                    @Override
+                                    public void onLoadCleared(android.graphics.drawable.Drawable placeholder) {
+                                        holder.seatMapProgress.setVisibility(View.GONE);
+                                    }
+
+                                    @Override
+                                    public void onLoadFailed(android.graphics.drawable.Drawable errorDrawable) {
+                                        holder.seatMapProgress.setVisibility(View.GONE);
+                                        Toast.makeText(WorkshopListActivity.this, "Failed to load seat map", Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+                    } else {
+                        holder.seatMapContainer.setVisibility(View.GONE);
+                        holder.btnToggleSeatMap.setText("🪑 View Seat Map");
+                    }
+                });
+            } else {
+                holder.btnToggleSeatMap.setVisibility(View.GONE);
+                holder.seatMapContainer.setVisibility(View.GONE);
+            }
+
             holder.btnDownload.setOnClickListener(v -> {
                 holder.btnDownload.setEnabled(false);
                 holder.btnDownload.setText("Downloading...");
@@ -280,7 +330,10 @@ public class WorkshopListActivity extends AppCompatActivity {
 
         class ViewHolder extends RecyclerView.ViewHolder {
             TextView tvTitle, tvRoom, tvTime, tvStatus;
-            Button btnDownload, btnScan, btnViewAttendees;
+            Button btnDownload, btnScan, btnViewAttendees, btnToggleSeatMap;
+            FrameLayout seatMapContainer;
+            ImageView ivSeatMap;
+            ProgressBar seatMapProgress;
 
             public ViewHolder(@NonNull View itemView) {
                 super(itemView);
@@ -291,6 +344,10 @@ public class WorkshopListActivity extends AppCompatActivity {
                 btnDownload = itemView.findViewById(R.id.btnDownload);
                 btnScan = itemView.findViewById(R.id.btnScan);
                 btnViewAttendees = itemView.findViewById(R.id.btnViewAttendees);
+                btnToggleSeatMap = itemView.findViewById(R.id.btnToggleSeatMap);
+                seatMapContainer = itemView.findViewById(R.id.seatMapContainer);
+                ivSeatMap = itemView.findViewById(R.id.ivSeatMap);
+                seatMapProgress = itemView.findViewById(R.id.seatMapProgress);
             }
         }
     }
