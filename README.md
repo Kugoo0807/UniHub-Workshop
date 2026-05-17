@@ -42,7 +42,7 @@
 |  | Supabase | Hosting PostgreSQL và lưu trữ file CSV |
 | AI Microservice | FastAPI | Xây dựng AI service độc lập |
 |  | Gemini API / Groq API | Tích hợp mô hình LLM cho các chức năng AI |
-|  | PyPDF2 / pdfplumber | Xử lý và trích xuất nội dung PDF |
+|  | PyPDF2 | Xử lý và trích xuất nội dung PDF |
 |  | Docker Internal Network | AI service hoạt động độc lập theo kiến trúc microservice bất đồng bộ |
 | Frontend (Web Admin) | React + Vite | Xây dựng giao diện web quản trị |
 |  | Tailwind CSS | Thiết kế giao diện responsive hiện đại |
@@ -154,22 +154,73 @@ flowchart LR
 
 ## 🔧 Yêu cầu môi trường
 
+### 🖥️ Phần mềm cần cài đặt
+
+| Công cụ | Phiên bản tối thiểu | Ghi chú |
+|---|---|---|
+| **Java (JDK)** | 25 | Backend Spring Boot yêu cầu Java 25 (`eclipse-temurin:25`) |
+| **Maven** | 3.9+ | Build tool cho backend (wrapper `mvnw` đã được đính kèm) |
+| **Node.js** | 22.19.0+ | Chạy frontend React/Vite |
+| **npm** | 11.6.3+ | Package manager cho frontend |
+| **Python** | 3.10+ | Chạy AI Microservice (FastAPI) |
+| **pip** | Mới nhất | Cài đặt dependencies Python |
+| **Docker** | 24.0+ | Container hóa toàn bộ hệ thống |
+| **Docker Compose** | 2.20+ | Orchestrate các services |
+| **Android Studio** | Ladybug (2024.2) trở lên | Build và chạy ứng dụng Android |
+| **Android SDK** | API Level 36 (compileSdk) | `minSdk = 29` (Android 10 trở lên) |
+
+### 🔑 Biến môi trường & API Keys
+
+Sao chép file `.env.example` ở thư mục gốc thành `.env.production` (cho Docker) hoặc vào `.env` trong từng module (cho chạy thủ công), sau đó điền đầy đủ các giá trị:
+
+| Biến | Mô tả | Bắt buộc |
+|---|---|---|
+| `LLM_PROVIDER` | Provider LLM: `gemini` hoặc `groq` | ✅ |
+| `LLM_API_KEY` | API Key của Gemini hoặc Groq | ✅ |
+| `LLM_MODEL` | Tên model LLM (vd: `gemini-flash-latest`) | ✅ |
+| `DB_URL` | JDBC URL tới PostgreSQL (Supabase) | ✅ |
+| `DB_USERNAME` | Username kết nối database | ✅ |
+| `DB_PASSWORD` | Password kết nối database | ✅ |
+| `REDIS_HOST` | Hostname Redis (dùng `redis` khi chạy Docker) | ✅ |
+| `REDIS_PORT` | Port Redis (mặc định `6379`) | ✅ |
+| `REDIS_PASSWORD` | Password Redis (để trống nếu không đặt) | ⬜ |
+| `CLOUDINARY_CLOUD_NAME` | Cloud name từ Cloudinary dashboard | ✅ |
+| `CLOUDINARY_API_KEY` | API Key Cloudinary | ✅ |
+| `CLOUDINARY_API_SECRET` | API Secret Cloudinary | ✅ |
+| `MAIL_HOST` | SMTP host (vd: `smtp.gmail.com`) | ✅ |
+| `MAIL_PORT` | SMTP port (vd: `587`) | ✅ |
+| `MAIL_USERNAME` | Email gửi thông báo | ✅ |
+| `MAIL_PASSWORD` | App Password của email | ✅ |
+| `TELEGRAM_BOT_TOKEN` | Token Telegram Bot | ✅ |
+| `TELEGRAM_WEBHOOK_TOKEN` | Secret token cho Telegram webhook | ✅ |
+| `JWT_ACCESS_SECRET` | Secret ký JWT Access Token (≥32 ký tự) | ✅ |
+| `JWT_REFRESH_SECRET` | Secret ký JWT Refresh Token (≥32 ký tự) | ✅ |
+| `SYNC_STUDENTS_URL` | URL file CSV sinh viên trên Supabase Storage | ✅ |
+| `VITE_TELEGRAM_BOT` | Username Telegram Bot (không có `@`) | ✅ |
+
+### 🌐 Dịch vụ bên ngoài cần có tài khoản
+
+| Dịch vụ | Mục đích | Link đăng ký |
+|---|---|---|
+| **Supabase** | Hosting PostgreSQL & lưu trữ file CSV sinh viên | [supabase.com](https://supabase.com) |
+| **Cloudinary** | Lưu trữ hình ảnh phòng học / sơ đồ mặt bằng | [cloudinary.com](https://cloudinary.com) |
+| **Google AI Studio** | Lấy Gemini API Key | [aistudio.google.com](https://aistudio.google.com) |
+| **Telegram BotFather** | Tạo bot nhận thông báo | [@BotFather](https://t.me/BotFather) |
+| **Gmail** | SMTP gửi email thông báo (cần bật App Password) | [myaccount.google.com](https://myaccount.google.com/apppasswords) |
+
 ---
 
 ## 🚀 Cài đặt và Chạy dự án
-
-Hệ thống yêu cầu cài đặt sẵn: `Java 21`, `Node.js 22+`, `Python 3.10+`, `Docker` & `Docker Compose`.
-Trước khi chạy, hãy copy các file `.env.example` thành `.env` và điền đầy đủ các thông số (Database, Cloudinary, Telegram Token, JWT Secret,...).
+- **Lưu ý:** Phải cài đặt môi trường (file `.env` tại các thư mục và file `.env.production` tại root) như phần `🔧 Yêu cầu môi trường` trước khi chạy dự án.
 
 ### Phương án 1: Chạy bằng Docker (Khuyên dùng cho Production/Test nhanh)
 Chỉ với 1 lệnh duy nhất, Docker sẽ tự động build và chạy toàn bộ hệ thống (Frontend, Backend, AI Service, Database, Redis, Nginx).
 
+Trỏ đến file cấu hình môi trường production và khởi chạy:
 ```bash
-# Trỏ đến file cấu hình môi trường production và khởi chạy
 docker-compose --env-file .env.production up -d --build
-
-Sau khi chạy xong, truy cập Web App tại: http://localhost (Nginx đã tự động handle port 80).
 ```
+Sau khi chạy xong, truy cập Web App tại: http://localhost (Nginx đã tự động handle port 80).
 
 ### Phương án 2: Chạy thủ công (Khuyên dùng cho Development)
 Bật các service bên thứ 3 (PostgreSQL, Redis) bằng Docker trước, sau đó chạy từng module:

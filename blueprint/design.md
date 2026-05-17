@@ -19,49 +19,9 @@ Hệ thống sử dụng mô hình Modular Monolith kết hợp Event-Driven & A
 
 - Hệ thống ngoài: Quản lý sinh viên - cung cấp CSV (University Student Management), Cổng thanh toán (Payment Gateway - Mock), LLM Provider (Gemini/Groq/DeepSeek API), Hệ thống thông báo (Notification System - Email, Telegram, ...).
 
-```PlantUML
-@startuml
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
-
-title System Context Diagram - UniHub Workshop System
-
-' Define custom tags for styling
-AddRelTag("dashed", $lineStyle=DashedLine())
-
-' Actors
-Person(student, "Student", "Views schedule, registers for workshops, makes payments, and receives check-in QR codes.")
-Person(admin, "Organizer / Admin", "Manages workshops and rooms, views statistics, and uploads PDFs/Maps.")
-Person(staff, "Check-in Staff", "Uses the Mobile App to scan QR codes at the event.")
-
-' Core System
-System(unihub, "UniHub Workshop System", "Manages the entire registration process, offline check-in, payments, and internal event dispatching.")
-
-' External Systems
-System_Ext(student_mgmt, "Student Data Source (Supabase)", "Hosts the daily exported CSV data from the legacy university system.")
-System_Ext(payment_gateway, "Payment Gateway (Mock)", "Processes payment transactions for paid workshops.")
-System_Ext(llm_provider, "LLM Provider", "Third-party API (Gemini/Groq) to process and generate workshop summaries.")
-System_Ext(cloudinary, "Cloudinary", "Cloud-based image management for hosting room layout maps.")
-System_Ext(telegram_api, "Telegram API", "External messaging platform for deep-linking and notifications.")
-System_Ext(smtp_server, "SMTP Server (Gmail)", "External email service provider.")
-
-' Relationships
-Rel(student, unihub, "Registers, pays, views tickets & connects Telegram", "HTTPS")
-Rel(admin, unihub, "Manages system, uploads PDFs/Maps", "HTTPS")
-Rel(staff, unihub, "Syncs check-in data", "HTTPS / Offline-first")
-
-Rel(unihub, student_mgmt, "Fetches student data periodically", "HTTPS/Stream")
-Rel(unihub, payment_gateway, "Requests payment processing", "REST")
-Rel(unihub, llm_provider, "Sends text for summarization", "REST")
-Rel(unihub, cloudinary, "Uploads room maps", "API")
-Rel(unihub, telegram_api, "Sends notifications & sets webhook", "REST")
-Rel(unihub, smtp_server, "Sends confirmation emails", "SMTP")
-
-Rel(telegram_api, student, "Delivers Telegram messages", "App", $tags="dashed")
-Rel(smtp_server, student, "Delivers Email messages", "Email", $tags="dashed")
-
-SHOW_LEGEND()
-@enduml
-```
+<div align="center">
+  <img src="https://res.cloudinary.com/dhctxuupz/image/upload/v1779012227/Level1-C4-Diagram-Unihub_s1jjmx.png" alt="System Context Diagram" width="800px">
+</div>
 
 ### Level 2 — Container
 
@@ -77,71 +37,9 @@ SHOW_LEGEND()
 
 - In-memory Cache & Lock: Redis.
 
-```PlantUML
-@startuml
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
-
-title Container Diagram - UniHub Workshop System
-
-AddRelTag("dashed", $lineStyle=DashedLine())
-
-' External Systems & Actors from Level 1
-Person(student, "Student", "Views schedule, registers for workshops, pays, and receives QR codes.")
-Person(admin, "Organizer / Admin", "Manages workshops/rooms, views stats, and uploads PDFs/Maps.")
-Person(staff, "Check-in Staff", "Uses mobile app to scan QR codes offline/online.")
-
-System_Ext(student_mgmt, "Student Data Source (Supabase)", "Hosts the daily exported CSV data.")
-System_Ext(payment_gateway, "Payment Gateway (Mock)", "Processes payment transactions.")
-System_Ext(llm_provider, "LLM Provider", "AI API (Gemini/Groq) for summarization.")
-System_Ext(cloudinary, "Cloudinary", "Cloud-based image management for room layout maps.")
-System_Ext(telegram_api, "Telegram API", "External messaging platform.")
-System_Ext(smtp_server, "SMTP Server (Gmail)", "External email service.")
-
-System_Boundary(unihub_boundary, "UniHub Workshop System") {
-    
-    Container(web_app, "Frontend Web (SPA)", "React.js, Vite", "Runs in browser. Provides interface for students and admins.")
-    Container(mobile_app, "Mobile App", "Android (Java), SQLite", "Enables offline QR scanning and background data synchronization.")
-    
-    Container(nginx, "API Gateway / Reverse Proxy", "Nginx", "Routes incoming API requests to the Backend and serves static frontend files.")
-    
-    Container(api, "Core Backend", "Spring Boot", "Handles business logic, RBAC security, rate limiting, seat locking, and scheduling.")
-    
-    Container(ai_service, "AI Microservice", "FastAPI", "Handles asynchronous PDF processing and interfaces with LLM.")
-    
-    ContainerDb(db, "Primary Database", "PostgreSQL", "Stores master data, users, workshops, registrations, and check-in records.")
-    ContainerDb(cache, "Cache & Lock", "Redis", "Manages atomic seat locking (Lua scripts), rate limits, and idempotent keys.")
-}
-
-' Relationships between Users and Client Apps
-Rel(student, web_app, "Visits & Uses", "HTTPS")
-Rel(admin, web_app, "Visits & Uses", "HTTPS")
-Rel(staff, mobile_app, "Uses", "Native UI")
-
-' Routing Traffic through Nginx
-Rel(web_app, nginx, "Makes API calls", "JSON/HTTPS")
-Rel(mobile_app, nginx, "Syncs check-in data", "JSON/HTTPS")
-Rel(nginx, api, "Proxies traffic to", "HTTP")
-
-' Internal Backend Interactions
-Rel(api, db, "Reads/Writes", "JDBC")
-Rel(api, cache, "Locks/Caches", "Redis Protocol")
-Rel(api, ai_service, "Requests summary", "JSON/HTTPS (Async)")
-
-' Relationships with External Systems
-Rel(api, payment_gateway, "Processes payment", "REST/HTTPS")
-Rel(api, cloudinary, "Uploads room maps", "API/HTTPS")
-Rel(api, student_mgmt, "Fetches daily CSV data", "HTTPS/Stream")
-Rel(api, telegram_api, "Sends messages & registers webhook", "REST/HTTPS")
-Rel(api, smtp_server, "Sends confirmation emails", "SMTP")
-Rel(ai_service, llm_provider, "Fetches PDF summary", "REST/HTTPS")
-
-' Dashed lines for notification delivery
-Rel(telegram_api, student, "Delivers messages to", "App", $tags="dashed")
-Rel(smtp_server, student, "Delivers emails to", "Email", $tags="dashed")
-
-SHOW_LEGEND()
-@enduml
-```
+<div align="center">
+  <img src="https://res.cloudinary.com/dhctxuupz/image/upload/v1779012227/Level2-C4-Diagram-Unihub_lsckbs.png" alt="Container Diagram" width="800px">
+</div>
 
 ## High-Level Architecture Diagram
 
