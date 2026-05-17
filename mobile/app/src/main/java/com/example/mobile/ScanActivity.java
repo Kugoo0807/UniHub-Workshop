@@ -35,6 +35,13 @@ import java.util.Locale;
 
 public class ScanActivity extends AppCompatActivity {
 
+    // ISO 8601 format for storage and server sync
+    private static final SimpleDateFormat ISO_FORMAT =
+            new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+    // Human-readable format for display only
+    private static final SimpleDateFormat DISPLAY_FORMAT =
+            new SimpleDateFormat("HH:mm dd/MM/yyyy", Locale.getDefault());
+
     private long workshopId;
     private AttendeeDao attendeeDao;
     private CheckinRepository repository;
@@ -129,10 +136,10 @@ public class ScanActivity extends AppCompatActivity {
                 statusMessage = "❌ Invalid ticket or not for this workshop";
                 status = "ERROR";
             } else if (attendee.isCheckedIn()) {
-                statusMessage = "⚠️ This ticket has already been checked in at " + attendee.getScannedAt();
+                statusMessage = "⚠️ This ticket has already been checked in at " + formatForDisplay(attendee.getScannedAt());
                 status = "DUPLICATE";
             } else {
-                String now = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(new Date());
+                String now = ISO_FORMAT.format(new Date());
                 
                 attendee.setCheckedIn(true);
                 attendee.setScannedAt(now);
@@ -159,6 +166,17 @@ public class ScanActivity extends AppCompatActivity {
             });
 
         }).start();
+    }
+
+    /** Convert ISO string to user-friendly display string. Falls back to raw if parse fails. */
+    private String formatForDisplay(String isoDateTime) {
+        if (isoDateTime == null || isoDateTime.isEmpty()) return "unknown time";
+        try {
+            Date date = ISO_FORMAT.parse(isoDateTime);
+            return date != null ? DISPLAY_FORMAT.format(date) : isoDateTime;
+        } catch (Exception e) {
+            return isoDateTime; // fallback
+        }
     }
 
     @Override

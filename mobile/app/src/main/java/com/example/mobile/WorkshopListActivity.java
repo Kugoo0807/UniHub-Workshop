@@ -2,6 +2,8 @@ package com.example.mobile;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -56,6 +58,10 @@ public class WorkshopListActivity extends AppCompatActivity {
     private Button btnSyncAll;
     private ProgressBar syncProgress;
     private boolean isSyncInProgress = false;
+
+    private static final long SYNC_TIMEOUT_MS = 30_000;
+    private final Handler syncTimeoutHandler = new Handler(Looper.getMainLooper());
+    private Runnable syncTimeoutRunnable;
 
     // Input format from backend (ISO-8601 without timezone)
     private static final SimpleDateFormat ISO_FORMAT =
@@ -116,21 +122,36 @@ public class WorkshopListActivity extends AppCompatActivity {
         UUID workId = repository.triggerBackgroundSync();
         LiveData<WorkInfo> workLiveData = WorkManager.getInstance(this)
                 .getWorkInfoByIdLiveData(workId);
+
+        // Safety net: ẩn spinner sau 30s nếu WorkManager không phản hồi
+        syncTimeoutRunnable = () -> {
+            workLiveData.removeObservers(this);
+            resetSyncUI();
+            Toast.makeText(this, "Sync timed out", Toast.LENGTH_SHORT).show();
+            Log.w("WorkshopList", "Sync timed out after " + SYNC_TIMEOUT_MS + "ms");
+        };
+        syncTimeoutHandler.postDelayed(syncTimeoutRunnable, SYNC_TIMEOUT_MS);
+
         workLiveData.observe(this, workInfo -> {
             if (workInfo == null || !workInfo.getState().isFinished()) {
                 return;
             }
 
+            syncTimeoutHandler.removeCallbacks(syncTimeoutRunnable);
             workLiveData.removeObservers(this);
 
             boolean isSuccess = workInfo.getState() == WorkInfo.State.SUCCEEDED;
             String message = isSuccess ? "Sync completed" : "Sync failed";
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
 
-            isSyncInProgress = false;
-            btnSyncAll.setEnabled(true);
-            syncProgress.setVisibility(View.GONE);
+            resetSyncUI();
         });
+    }
+
+    private void resetSyncUI() {
+        isSyncInProgress = false;
+        btnSyncAll.setEnabled(true);
+        syncProgress.setVisibility(View.GONE);
     }
 
     private void loadWorkshops() {
