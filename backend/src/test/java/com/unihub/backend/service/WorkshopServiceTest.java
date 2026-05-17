@@ -411,7 +411,7 @@ class WorkshopServiceTest {
         workshop.setStatus("PUBLISHED");
         workshop.setPrice(100L);
 
-        when(workshopRepository.findById(1L)).thenReturn(Optional.of(workshop));
+        when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(workshop));
         when(registrationRepository.bulkCancelByWorkshopId(eq(1L), anyList())).thenReturn(5);
         when(paymentRepository.countCompletedByWorkshopId(1L)).thenReturn(0L);
 
@@ -427,7 +427,7 @@ class WorkshopServiceTest {
     void cancelWorkshop_draftStatus_throwsIllegalArgument() {
         Workshop workshop = baseWorkshop(1L);
         workshop.setStatus("DRAFT");
-        when(workshopRepository.findById(1L)).thenReturn(Optional.of(workshop));
+        when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(workshop));
 
         assertThrows(IllegalArgumentException.class, () -> workshopService.cancelWorkshop(1L));
     }
@@ -436,7 +436,7 @@ class WorkshopServiceTest {
     void cancelWorkshop_alreadyCancelled_throwsIllegalArgument() {
         Workshop existing = baseWorkshop(1L);
         existing.setStatus("CANCELLED");
-        when(workshopRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(existing));
 
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
@@ -449,7 +449,7 @@ class WorkshopServiceTest {
         Workshop workshop = baseWorkshop(1L);
         workshop.setStatus("COMPLETED");
 
-        when(workshopRepository.findById(1L)).thenReturn(Optional.of(workshop));
+        when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(workshop));
 
         assertThrows(IllegalArgumentException.class, () -> workshopService.cancelWorkshop(1L));
     }
@@ -460,7 +460,7 @@ class WorkshopServiceTest {
         workshop.setStatus("PUBLISHED");
         workshop.setPrice(100L);
 
-        when(workshopRepository.findById(1L)).thenReturn(Optional.of(workshop));
+        when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(workshop));
         when(paymentRepository.countCompletedByWorkshopId(1L)).thenReturn(5L);
 
         // Should not throw exception anymore
