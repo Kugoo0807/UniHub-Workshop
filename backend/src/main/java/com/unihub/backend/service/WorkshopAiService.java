@@ -34,13 +34,13 @@ public class WorkshopAiService {
     public void generateSummaryAsync(Long workshopId, byte[] fileBytes, String filename) {
         try {
             log.info("Starting AI summary generation for workshop {}", workshopId);
-            
+
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.MULTIPART_FORM_DATA);
 
             MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
             body.add("workshop_id", workshopId);
-            
+
             // Convert byte[] to Resource for RestTemplate
             ByteArrayResource fileAsResource = new ByteArrayResource(fileBytes) {
                 @Override
@@ -74,7 +74,8 @@ public class WorkshopAiService {
                         log.info("Updated speaker for workshop {} to: {}", workshopId, speaker);
                     });
                 } else {
-                    log.info("AI did not detect a speaker in PDF for workshop {} — keeping existing value.", workshopId);
+                    log.info("AI did not detect a speaker in PDF for workshop {} — keeping existing value.",
+                            workshopId);
                 }
             } else {
                 log.warn("FastAPI returned non-200 status for workshop {}: {}", workshopId, response.getStatusCode());
