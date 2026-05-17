@@ -142,13 +142,7 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
             setError('Registration end time must be after registration start time');
             return;
         }
-        
-        // V7: Registration start date cannot be before today
-        const todayStartOfDay = new Date(`${todayStr}T00:00:00`);
-        if (new Date(form.registrationStartTime) < todayStartOfDay) {
-            setError('Registration start date cannot be in the past');
-            return;
-        }
+
         
         // V5: registrationStartTime < startTime
         if (new Date(form.registrationStartTime) >= new Date(startTime)) {
@@ -326,7 +320,6 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
                                 type="datetime-local"
                                 value={form.registrationStartTime}
                                 onChange={handleChange}
-                                min={`${todayStr}T00:00`}
                                 max={form.registrationEndTime || maxRegistrationEndTime}
                                 className={inputClass}
                             />
@@ -338,7 +331,7 @@ const WorkshopFormModal = ({ isOpen, onClose, onSubmit, initialData, isLoading }
                                 type="datetime-local"
                                 value={form.registrationEndTime}
                                 onChange={handleChange}
-                                min={form.registrationStartTime || `${todayStr}T00:00`}
+                                min={form.registrationStartTime}
                                 max={maxRegistrationEndTime}
                                 className={inputClass}
                             />
