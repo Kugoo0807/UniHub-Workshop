@@ -246,6 +246,16 @@ npm install
 npm run dev
 ```
 
+4. Chạy ứng dụng Mobile bằng Android Studio:
+
+- Mở **Android Studio** và chọn **Open** thư mục `mobile`.
+- Chờ Android Studio sync Gradle và tải dependencies cần thiết.
+- Đảm bảo Backend Core đang chạy tại port `8080`.
+- Chọn thiết bị chạy app:
+  - Nếu dùng Android Emulator, app đã cấu hình gọi backend qua `http://10.0.2.2:8080/`.
+  - Nếu dùng điện thoại thật, máy tính và điện thoại cần cùng mạng Wi-Fi; cập nhật `BASE_URL` trong `mobile/app/src/main/java/com/example/mobile/data/remote/RetrofitClient.java` sang IP LAN của máy tính, ví dụ `http://192.168.1.10:8080/`.
+- Nhấn **Run** trong Android Studio để build và cài app lên thiết bị.
+
 ---
 <div align="center">
   <b>Develped by the UniHub Team</b><br>
