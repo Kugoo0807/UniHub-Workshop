@@ -30,6 +30,13 @@ public interface RoomRepository extends JpaRepository<Room, Long> {
     long countActiveWorkshopsByRoomId(@Param("roomId") Long roomId);
 
     /**
+     * Count ALL workshops assigned to this room (including historical).
+     * Used to prevent deleting rooms and avoid foreign key constraint violations.
+     */
+    @Query("SELECT COUNT(w) FROM Workshop w WHERE w.room.id = :roomId")
+    long countAllWorkshopsByRoomId(@Param("roomId") Long roomId);
+
+    /**
      * Batch version of countActiveWorkshopsByRoomId for multiple room IDs at once.
      * Returns a list of Object[] where index 0 is roomId and index 1 is the count.
      */

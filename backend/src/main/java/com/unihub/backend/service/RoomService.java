@@ -130,13 +130,22 @@ public class RoomService {
     @Transactional
     public void deleteRoom(Long id) {
         Room room = findOrThrow(id);
-        long activeWorkshops = roomRepository.countActiveWorkshopsByRoomId(id);
-        if (activeWorkshops > 0) {
-            throw new ConflictException(
-                    "Room is currently used by " + activeWorkshops + " active workshop(s). " +
-                    "Cancel or delete those workshops first."
-            );
+        
+        long totalWorkshops = roomRepository.countAllWorkshopsByRoomId(id);
+        if (totalWorkshops > 0) {
+            long activeWorkshops = roomRepository.countActiveWorkshopsByRoomId(id);
+            if (activeWorkshops > 0) {
+                throw new ConflictException(
+                        "Room is currently used by " + activeWorkshops + " active workshop(s). " +
+                        "Cancel or delete those workshops first."
+                );
+            } else {
+                throw new ConflictException(
+                        "Cannot delete room. It is referenced by " + totalWorkshops + " historical workshop(s)."
+                );
+            }
         }
+        
         roomRepository.delete(room);
         log.info("Deleted room id={}", id);
     }
