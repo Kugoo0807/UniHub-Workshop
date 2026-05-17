@@ -19,45 +19,9 @@ Hệ thống sử dụng mô hình Modular Monolith kết hợp Event-Driven & A
 
 - Hệ thống ngoài: Quản lý sinh viên - cung cấp CSV (University Student Management), Cổng thanh toán (Payment Gateway - Mock), LLM Provider (Gemini/Groq/DeepSeek API), Hệ thống thông báo (Notification System - Email, Telegram, ...).
 
-``` PlantUML
-@startuml
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
-
-title System Context Diagram - UniHub Workshop System
-
-' Define custom tags for styling
-AddRelTag("dashed", $lineStyle=DashedLine())
-
-' Actors
-Person(student, "Student", "Views schedule, registers for workshops, makes payments, and receives check-in QR codes.")
-Person(admin, "Organizer", "Creates and manages workshops, views statistics, and uploads PDF files.")
-Person(staff, "Check-in Staff", "Uses the Mobile App to scan QR codes at the event.")
-
-' Core System
-System(unihub, "UniHub Workshop System", "Manages the entire registration process, offline check-in, payments, and dispatches notification events.")
-
-' External Systems
-System_Ext(student_mgmt, "University Student Management", "Legacy university system, no API, only exports daily CSV data at night.")
-System_Ext(payment_gateway, "Payment Gateway (Mock)", "Processes payment transactions for paid workshops.")
-System_Ext(llm_provider, "LLM Provider", "Third-party API (Gemini/Groq) to process and generate workshop summaries.")
-System_Ext(notification, "Notification System", "Messaging system (Email, Telegram) for registration confirmations.")
-
-' Relationships
-Rel(student, unihub, "Registers, pays, views tickets", "HTTPS")
-Rel(admin, unihub, "Manages workshops, uploads PDFs", "HTTPS")
-Rel(staff, unihub, "Syncs check-in data", "HTTPS/Offline Sync")
-
-Rel(unihub, student_mgmt, "Reads student data periodically", "CSV/Batch Job")
-Rel(unihub, payment_gateway, "Requests payment processing", "REST/HTTPS")
-Rel(unihub, llm_provider, "Sends text for summarization", "REST/HTTPS")
-Rel(unihub, notification, "Triggers notification events", "Event/Webhook")
-
-Rel(notification, student, "Delivers success notifications to", "Email/Telegram", $tags="dashed")
-
-SHOW_LEGEND()
-@enduml
-```
-
+<div align="center">
+  <img src="https://res.cloudinary.com/dhctxuupz/image/upload/v1779012227/Level1-C4-Diagram-Unihub_s1jjmx.png" alt="System Context Diagram" width="800px">
+</div>
 
 ### Level 2 — Container
 
@@ -73,109 +37,49 @@ SHOW_LEGEND()
 
 - In-memory Cache & Lock: Redis.
 
-```PlantUML
-@startuml
-!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
-
-title Container Diagram - UniHub Workshop System
-
-AddRelTag("dashed", $lineStyle=DashedLine())
-
-' External Systems & Actors from Level 1
-Person(student, "Student", "Views schedule, registers for workshops, and receives QR codes.")
-Person(admin, "Organizer", "Manages workshops and uploads PDFs.")
-Person(staff, "Check-in Staff", "Uses mobile app to scan QR codes.")
-
-System_Ext(student_mgmt, "University Student Management", "Legacy system providing CSV exports.")
-System_Ext(payment_gateway, "Payment Gateway (Mock)", "Processes transactions.")
-System_Ext(llm_provider, "LLM Provider", "AI API for summarization.")
-System_Ext(notification, "Notification System", "External system for Email/Telegram.")
-
-System_Boundary(unihub_boundary, "UniHub Workshop System") {
-    Container(web_app, "Frontend Web", "React.js", "Provides interface for students and admins.")
-    Container(mobile_app, "Mobile App", "Android (Java), SQLite", "Enables offline QR scanning and data synchronization.")
-    
-    Container(api, "Core Backend", "Spring Boot", "Handles business logic, registrations, security, and scheduling.")
-    
-    Container(ai_service, "AI Microservice", "FastAPI", "Handles PDF processing and interfaces with LLM.")
-    
-    ContainerDb(db, "Primary Database", "PostgreSQL", "Stores master data, registrations, and transactions.")
-    ContainerDb(cache, "Cache & Lock", "Redis", "Manages seat locking, rate limits, and idempotent keys.")
-}
-
-' Relationships between Containers
-Rel(student, web_app, "Uses", "HTTPS")
-Rel(admin, web_app, "Uses", "HTTPS")
-Rel(staff, mobile_app, "Uses", "Native UI")
-
-Rel(web_app, api, "API Calls", "JSON/HTTPS")
-Rel(mobile_app, api, "Syncs data", "JSON/HTTPS")
-
-Rel(api, db, "Reads/Writes", "JDBC/SQL")
-Rel(api, cache, "Locks/Caches", "Redis Protocol")
-Rel(api, ai_service, "Requests summary", "JSON/HTTPS")
-
-' Relationships with External Systems
-Rel(api, payment_gateway, "Processes payment", "REST/HTTPS")
-Rel(api, notification, "Triggers events", "REST/Webhooks")
-Rel(api, student_mgmt, "Imports data", "CSV/Scheduled Job")
-Rel(ai_service, llm_provider, "Fetches summary", "REST/HTTPS")
-
-' Dashed line for notification delivery
-Rel(notification, student, "Delivers notifications to", "Email/Telegram", $tags="dashed")
-
-SHOW_LEGEND()
-@enduml
-```
+<div align="center">
+  <img src="https://res.cloudinary.com/dhctxuupz/image/upload/v1779012227/Level2-C4-Diagram-Unihub_lsckbs.png" alt="Container Diagram" width="800px">
+</div>
 
 ## High-Level Architecture Diagram
 
-[User -> Load Balancer/Nginx]
+```mermaid
+flowchart LR
 
--> [Spring Boot Core] <---> [PostgreSQL]
+    User["User<br/>(Student/Admin/Staff)"]
 
--> [Spring Boot Core] <---> [Redis] (Rate Limiting, Lua Script, Idempotency)
+    LB["Nginx / Load Balancer"]
 
--> [Spring Boot Core] --(HTTP/REST)--> [Payment Gateway]
+    subgraph CoreSystem["Core System"]
+        Core["Spring Boot Core<br/>(REST API, Security, Jobs)"]
+    end
 
--> [Spring Boot Core] ---> [FastAPI] -> [LLM API]
+    DB[("PostgreSQL<br/>(Primary Data)")]
+    Redis[("Redis<br/>(Rate Limit, Lua Lock, Cache)")]
 
-```PlantUML
-@startuml
-!theme plain
-skinparam linetype ortho
+    subgraph AIMicroservice["AI Microservice"]
+        AI["FastAPI<br/>(PDF Processing)"]
+    end
 
-actor User as "User\n(Student/Admin/Staff)"
-node "Nginx / Load Balancer" as LB
+    subgraph ExternalSystems["External Systems"]
+        Payment["Payment Gateway<br/>(Mock)"]
+        LLM["LLM Provider<br/>(Gemini/Groq)"]
+        Cloudinary["Cloudinary<br/>(Image Hosting)"]
+        Supabase["Supabase Storage<br/>(CSV Source)"]
+    end
 
-package "Core System" {
-    component "Spring Boot Core\n(REST API, Security, Jobs)" as Core
-}
+    User -->|HTTPS| LB
+    LB -->|Reverse Proxy| Core
 
-database "PostgreSQL\n(Primary Data)" as DB
-database "Redis\n(Rate Limit, Lua Lock, Cache)" as Redis
+    Core <--> |JDBC / ACID Transactions| DB
+    Core <--> |Redisson / Jedis| Redis
 
-package "AI Microservice" {
-    component "FastAPI\n(PDF Processing)" as AI
-}
+    Core -->|REST Async| AI
+    AI -->|API Call| LLM
 
-cloud "External Systems" {
-    component "Payment Gateway\n(Mock)" as Payment
-    component "LLM Provider\n(Gemini/Groq)" as LLM
-    component "Student Management\n(CSV Export)" as StudentSys
-}
-
-User --> LB : HTTPS
-LB --> Core : Traffic
-
-Core <--> DB : JDBC / ACID Transactions
-Core <--> Redis : Redisson / Jedis
-Core --> Payment : REST (Circuit Breaker)
-Core --> AI : REST (Async)
-AI --> LLM : API Call
-StudentSys ..> Core : Batch Job (Nightly CSV)
-
-@enduml
+    Core -->|REST + Circuit Breaker| Payment
+    Core -->|Upload API| Cloudinary
+    Supabase -.->|Nightly CSV Sync| Core
 ```
 
 ## Thiết kế cơ sở dữ liệu

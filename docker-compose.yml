@@ -1,15 +1,45 @@
+version: '3.8'
+
 services:
+  # --- Cache / Lock Redis ---
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - unihub-network
+
+  # --- AI Microservice ---
   ai-service:
     build: ./ai-service
-    ports:
-      - "8000:8000" # Expose for local testing from Windows Spring Boot
     env_file:
-      - ./ai-service/.env
-  # Uncomment below if you want to run backend via Docker later
-  # backend:
-  #   build: ./backend
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     - AI_SERVICE_URL=http://ai-service:8000
-  # docker-compose up --build ai-service
+      - .env.production
+    networks:
+      - unihub-network
+
+  # --- Spring Boot Backend ---
+  backend:
+    build: ./backend
+    env_file:
+      - .env.production
+    depends_on:
+      - redis
+    networks:
+      - unihub-network
+
+  # --- React Frontend + Nginx Reverse Proxy ---
+  frontend:
+    build: ./frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - unihub-network
+
+volumes:
+  pgdata:
+
+networks:
+  unihub-network:
+    driver: bridge

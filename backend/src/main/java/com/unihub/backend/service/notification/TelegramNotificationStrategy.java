@@ -5,6 +5,10 @@ import com.unihub.backend.entity.Notification;
 import com.unihub.backend.repository.NotificationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.jsoup.nodes.Document;
+import org.jsoup.Jsoup;
+import org.jsoup.safety.Safelist;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -59,15 +63,23 @@ public class TelegramNotificationStrategy implements NotificationStrategy {
         try {
             throttle();
             String endpoint = "https://api.telegram.org/bot" + telegramToken + "/sendMessage";
-            String telegramMessage = content.contentHtml()
-                    .replaceAll("(?i)<div[^>]*>", "")
-                    .replaceAll("(?i)</div>", "")
-                    .replaceAll("(?i)<p[^>]*>", "")
-                    .replaceAll("(?i)</p>", "\n")
-                    .replaceAll("(?i)<h2[^>]*>", "<b>")
-                    .replaceAll("(?i)</h2>", "</b>\n")
-                    .replaceAll("(?i)<hr[^>]*>", "\n---\n")
-                    .replaceAll("(?i)<br[^>]*>", "\n");
+            // Preprocess: Convert HTML to Telegram's supported format and add newlines
+            String textWithNewlines = content.contentHtml()
+                .replaceAll("(?i)<br[^>]*>", "\n")
+                .replaceAll("(?i)</p>", "\n\n")
+                .replaceAll("(?i)</div>", "\n")
+                .replaceAll("(?i)</li>", "\n")
+                .replaceAll("(?i)<hr[^>]*>", "\n---\n")
+                .replaceAll("(?i)<h[1-6][^>]*>", "<b>")
+                .replaceAll("(?i)</h[1-6]>", "</b>\n");
+
+            // Safelist for Telegram's HTML parse mode
+            Safelist allowedTags = Safelist.none()
+                .addTags("b", "strong", "i", "em", "u", "s", "a", "code", "pre")
+                .addAttributes("a", "href");
+
+            String telegramMessage = Jsoup.clean(textWithNewlines, "", allowedTags, 
+                    new Document.OutputSettings().prettyPrint(false));
 
             Map<String, Object> payload = Map.of(
                         "chat_id", recipient.chatId(),
