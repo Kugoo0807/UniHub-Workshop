@@ -1,3 +1,5 @@
 blank/
 .env
+.env.local
+.env.production
 .idea/
