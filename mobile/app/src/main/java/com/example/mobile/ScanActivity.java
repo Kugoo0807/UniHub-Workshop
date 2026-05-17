@@ -123,14 +123,16 @@ public class ScanActivity extends AppCompatActivity {
             AttendeeEntity attendee = attendeeDao.getAttendeeByQrCode(qrCode, workshopId);
 
             String statusMessage;
-            boolean isSuccess = false;
+            String status = "ERROR"; // ERROR, DUPLICATE, or SUCCESS
 
             if (attendee == null) {
                 statusMessage = "❌ Invalid ticket or not for this workshop";
+                status = "ERROR";
             } else if (attendee.isCheckedIn()) {
-                statusMessage = "⚠️ Student " + attendee.getStudentName() + " (" + attendee.getStudentCode() + ") already checked in at " + attendee.getScannedAt();
+                statusMessage = "⚠️ This ticket has already been checked in at " + attendee.getScannedAt();
+                status = "DUPLICATE";
             } else {
-                String now = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).format(new Date());
+                String now = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(new Date());
                 
                 attendee.setCheckedIn(true);
                 attendee.setScannedAt(now);
@@ -138,7 +140,7 @@ public class ScanActivity extends AppCompatActivity {
                 attendeeDao.update(attendee);
 
                 statusMessage = "✅ Check-in successful:\n" + attendee.getStudentName() + " - " + attendee.getStudentCode();
-                isSuccess = true;
+                status = "SUCCESS";
 
                 if (NetworkUtil.isNetworkAvailable(this)) {
                     repository.triggerBackgroundSync();
@@ -146,11 +148,11 @@ public class ScanActivity extends AppCompatActivity {
             }
 
             final String msg = statusMessage;
-            final boolean success = isSuccess;
+            final String finalStatus = status;
             runOnUiThread(() -> {
                 Intent intent = new Intent(ScanActivity.this, ScanResultActivity.class);
                 intent.putExtra("MESSAGE", msg);
-                intent.putExtra("IS_SUCCESS", success);
+                intent.putExtra("STATUS", finalStatus);
                 intent.putExtra("WORKSHOP_ID", workshopId);
                 startActivity(intent);
                 finish();

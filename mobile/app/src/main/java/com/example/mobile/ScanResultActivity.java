@@ -16,18 +16,26 @@ public class ScanResultActivity extends AppCompatActivity {
         setContentView(R.layout.activity_scan_result);
 
         String message = getIntent().getStringExtra("MESSAGE");
-        boolean isSuccess = getIntent().getBooleanExtra("IS_SUCCESS", false);
+        String status = getIntent().getStringExtra("STATUS");
+        if (status == null) status = "ERROR";
         long workshopId = getIntent().getLongExtra("WORKSHOP_ID", -1);
 
         TextView tvResult = findViewById(R.id.tvResult);
         TextView tvResultIcon = findViewById(R.id.tvResultIcon);
         tvResult.setText(message);
 
-        if (isSuccess) {
+        if ("SUCCESS".equals(status)) {
+            // Green - successful check-in
             tvResult.setTextColor(ContextCompat.getColor(this, R.color.emerald_700));
             tvResultIcon.setText("✓");
             tvResultIcon.setTextColor(ContextCompat.getColor(this, R.color.emerald_600));
+        } else if ("DUPLICATE".equals(status)) {
+            // Amber/Yellow - duplicate/warning
+            tvResult.setTextColor(ContextCompat.getColor(this, R.color.amber_600));
+            tvResultIcon.setText("⚠");
+            tvResultIcon.setTextColor(ContextCompat.getColor(this, R.color.amber_500));
         } else {
+            // Red - error
             tvResult.setTextColor(ContextCompat.getColor(this, R.color.red_700));
             tvResultIcon.setText("✗");
             tvResultIcon.setTextColor(ContextCompat.getColor(this, R.color.red_600));
