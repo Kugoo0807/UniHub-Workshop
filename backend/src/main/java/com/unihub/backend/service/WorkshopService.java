@@ -229,6 +229,11 @@ public class WorkshopService {
                             " because workshop is not in DRAFT status");
         }
 
+        long successfulCount = registrationRepository.countByWorkshopIdAndStatus(id, "SUCCESS");
+        if (request.totalSlots() < successfulCount) {
+            throw new ConflictException("Cannot reduce total slots below the number of successful registrations (" + successfulCount + ")");
+        }
+
         String speaker = (request.speaker() == null || request.speaker().isBlank()) ? "TBD" : request.speaker().trim();
 
         // 4. Update all fields
