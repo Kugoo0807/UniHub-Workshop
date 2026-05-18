@@ -1,4 +1,4 @@
-package com.unihub.backend.service;
+package com.unihub.backend.dto;
 
 import lombok.Builder;
 import lombok.Data;
