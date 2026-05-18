@@ -60,10 +60,9 @@ end
 ```
 
 ### 2. Release Seat
-- Khi reserveSeat thành công, cần tạo một key phụ dạng `hold:{workshopId}:{userId}` với TTL = 10 phút.
-- Khi cần hoàn chỗ, hệ thống tăng lại key `workshop:{workshopId}:slots`.
-- Release phải idempotent theo `userId` nếu có tracking reservation key riêng (tùy triển khai).
-- Thiết lập một Job ngầm (Redis Keyspace Notifications) lắng nghe sự kiện EXPIRED của key hold:*. Khi key này hết hạn, Job ngầm tự động kích hoạt hàm `releaseSeat(workshopId, userId)`.
+- Khi reserveSeat thành công, cần tạo một key phụ dạng `hold:{workshopId}:{userId}` trên Redis (Không set TTL) để đánh dấu chỗ.
+- Thiết lập một Background Job (CronJob) định kỳ quét cơ sở dữ liệu để tìm các bản ghi `registrations` ở trạng thái `PENDING` đã vượt quá 10 phút.
+- Khi phát hiện bản ghi quá hạn, Job ngầm sẽ chủ động hủy đơn, cập nhật DB và gọi hàm `releaseSeat(workshopId, userId)` để xóa key `hold` đồng thời hoàn lại slot ngay trên Redis. Cơ chế này đảm bảo tính nhất quán tuyệt đối giữa PostgreSQL và Cache.  
 
 ### 3. Rate Limiting
 - Áp dụng theo `userId` và IP để chặn spam.

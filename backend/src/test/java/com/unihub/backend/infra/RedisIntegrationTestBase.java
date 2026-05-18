@@ -2,7 +2,6 @@ package com.unihub.backend.infra;
 
 import com.unihub.backend.config.RedisConfig;
 import com.unihub.backend.filter.RateLimiterFilter;
-import com.unihub.backend.scheduler.HoldKeyCleanupScheduler;
 import com.unihub.backend.service.IdempotencyServiceImpl;
 import com.unihub.backend.service.SeatLockingServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,7 +42,6 @@ public abstract class RedisIntegrationTestBase {
             SeatLockingServiceImpl.class,
             IdempotencyServiceImpl.class,
             RateLimiterFilter.class,
-            HoldKeyCleanupScheduler.class
     })
     static class RedisTestConfig {}
 }

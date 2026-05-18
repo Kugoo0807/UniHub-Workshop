@@ -36,7 +36,7 @@ public class SeatLockingServiceImpl implements SeatLockingService {
 
         if (result != null && result == 1L) {
             String holdKey = buildHoldKey(workshopId, userId);
-            redis.opsForValue().set(holdKey, "1", HOLD_TTL);
+            redis.opsForValue().set(holdKey, "1");
             log.debug("Seat reserved: workshop={}, user={}", workshopId, userId);
             return true;
         }

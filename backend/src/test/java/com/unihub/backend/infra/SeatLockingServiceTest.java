@@ -32,7 +32,7 @@ class SeatLockingServiceTest extends RedisIntegrationTestBase {
 
         assertThat(reserved).isTrue();
         assertThat(ttl).isNotNull();
-        assertThat(ttl).isBetween(1L, 600L);
+        assertThat(ttl).isEqualTo(-1L);
     }
 
     @Test
