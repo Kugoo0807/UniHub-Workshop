@@ -732,6 +732,55 @@ class WorkshopServiceTest {
         assertSame(room, existing.getRoom());
     }
 
+    // ──────────── WM-UT-13: Update price with registrations ────────────
+
+    @Test
+    void updateWorkshop_changePriceNoRegistrations_succeeds() {
+        Workshop existing = baseWorkshop(1L);
+        existing.setPrice(0L);
+
+        WorkshopRequest request = new WorkshopRequest(
+                existing.getTitle(), existing.getDescription(), 1L, existing.getSpeaker(),
+                existing.getTotalSlots(), 100L, // change price to 100
+                existing.getStartTime(), existing.getEndTime(),
+                existing.getRegistrationStartTime(), existing.getRegistrationEndTime());
+
+        when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(existing));
+        when(registrationRepository.existsByWorkshopId(1L)).thenReturn(false);
+        when(workshopRepository.save(any(Workshop.class))).thenAnswer(i -> i.getArgument(0));
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            workshopService.updateWorkshop(1L, request);
+            assertEquals(100L, existing.getPrice());
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
+    @Test
+    void updateWorkshop_changePriceWithRegistrations_throwsConflict() {
+        Workshop existing = baseWorkshop(1L);
+        existing.setPrice(0L);
+
+        WorkshopRequest request = new WorkshopRequest(
+                existing.getTitle(), existing.getDescription(), 1L, existing.getSpeaker(),
+                existing.getTotalSlots(), 100L, // change price to 100
+                existing.getStartTime(), existing.getEndTime(),
+                existing.getRegistrationStartTime(), existing.getRegistrationEndTime());
+
+        when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(existing));
+        when(registrationRepository.existsByWorkshopId(1L)).thenReturn(true);
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            ConflictException ex = assertThrows(ConflictException.class, () -> workshopService.updateWorkshop(1L, request));
+            assertTrue(ex.getMessage().contains("Cannot update price because this workshop already has registrations"));
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+    }
+
     // ──────────── Test Helpers ────────────
 
     private WorkshopRequest validRequest() {
