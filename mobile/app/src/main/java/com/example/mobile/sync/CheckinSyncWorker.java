@@ -85,6 +85,6 @@ public class CheckinSyncWorker extends Worker {
             }
         }
 
-        return allSuccess ? Result.success() : Result.retry();
+        return allSuccess ? Result.success() : Result.failure();
     }
 }

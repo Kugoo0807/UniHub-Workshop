@@ -3,10 +3,10 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- Add one more student so the seeded registrations are spread across 2 student users:
--- 21127001@student.hcmus.edu.vn already exists from V2.
+-- 21127001@student.unihub.edu.vn already exists from V2.
 INSERT INTO users (student_code, full_name, email, password, role, status)
 VALUES
-    ('21127002', 'Tran Thi B', '21127002@student.hcmus.edu.vn', crypt('password123', gen_salt('bf', 12)), 'STUDENT', 'ACTIVE')
+    ('21127002', 'Tran Thi B', '21127002@student.unihub.edu.vn', crypt('password123', gen_salt('bf', 12)), 'STUDENT', 'ACTIVE')
 ON CONFLICT (email) DO NOTHING;
 
 -- 5 additional rooms.
@@ -222,56 +222,56 @@ SELECT
 FROM (
     VALUES
         (
-            '21127001@student.hcmus.edu.vn',
+            '21127001@student.unihub.edu.vn',
             'Seed Demo: Java Spring Boot Patterns',
             'QR-SEED-SPRING-21127001',
             'SUCCESS',
             '2026-05-10 09:00:00'::TIMESTAMP
         ),
         (
-            '21127002@student.hcmus.edu.vn',
+            '21127002@student.unihub.edu.vn',
             'Seed Demo: Java Spring Boot Patterns',
             'QR-SEED-SPRING-21127002',
             'SUCCESS',
             '2026-05-10 09:05:00'::TIMESTAMP
         ),
         (
-            '21127001@student.hcmus.edu.vn',
+            '21127001@student.unihub.edu.vn',
             'Seed Demo: UI UX Research Sprint',
             'QR-SEED-UX-21127001',
             'SUCCESS',
             '2026-05-12 10:00:00'::TIMESTAMP
         ),
         (
-            '21127002@student.hcmus.edu.vn',
+            '21127002@student.unihub.edu.vn',
             'Seed Demo: Data Engineering with Kafka',
             'QR-SEED-KAFKA-21127002',
             'SUCCESS',
             '2026-05-11 14:00:00'::TIMESTAMP
         ),
         (
-            '21127001@student.hcmus.edu.vn',
+            '21127001@student.unihub.edu.vn',
             'Seed Demo: Cybersecurity Blue Team Lab',
             'QR-SEED-BLUE-PENDING-21127001',
             'PENDING',
             (CURRENT_TIMESTAMP - INTERVAL '2 minutes')::TIMESTAMP
         ),
         (
-            '21127002@student.hcmus.edu.vn',
+            '21127002@student.unihub.edu.vn',
             'Seed Demo: Git Collaboration Deep Dive',
             'QR-SEED-GIT-CANCELLED-21127002',
             'CANCELLED',
             '2026-05-04 16:00:00'::TIMESTAMP
         ),
         (
-            '21127001@student.hcmus.edu.vn',
+            '21127001@student.unihub.edu.vn',
             'Seed Demo: Alumni Tech Talk',
             'QR-SEED-ALUMNI-21127001',
             'SUCCESS',
             '2026-04-25 09:00:00'::TIMESTAMP
         ),
         (
-            '21127002@student.hcmus.edu.vn',
+            '21127002@student.unihub.edu.vn',
             'Seed Demo: Alumni Tech Talk',
             'QR-SEED-ALUMNI-21127002',
             'SUCCESS',

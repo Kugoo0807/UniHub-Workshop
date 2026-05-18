@@ -3,7 +3,7 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 INSERT INTO users (student_code, full_name, email, password, role) VALUES
     (NULL, 'Admin System', 'admin@unihub.edu.vn', crypt('password123', gen_salt('bf', 12)), 'ADMIN'),
-    ('21127001', 'Nguyen Van A', '21127001@student.hcmus.edu.vn', crypt('password123', gen_salt('bf', 12)), 'STUDENT'),
+    ('21127001', 'Nguyen Van A', '21127001@student.unihub.edu.vn', crypt('password123', gen_salt('bf', 12)), 'STUDENT'),
     (NULL, 'Staff Check-in', 'staff@unihub.edu.vn', crypt('password123', gen_salt('bf', 12)), 'STAFF');
 
 INSERT INTO workshops (title, description, total_slots, remaining_slots, price, start_time, end_time) VALUES

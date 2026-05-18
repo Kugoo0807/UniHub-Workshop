@@ -169,6 +169,24 @@ flowchart LR
 | **Android Studio** | Ladybug (2024.2) trở lên | Build và chạy ứng dụng Android |
 | **Android SDK** | API Level 36 (compileSdk) | `minSdk = 29` (Android 10 trở lên) |
 
+### 📊 Định dạng File CSV Đồng bộ Sinh viên
+Để tác vụ ngầm nạp dữ liệu sinh viên qua đêm hoạt động chính xác, file CSV được cấu hình lưu trữ tại `SYNC_STUDENTS_URL` bắt buộc phải tuân thủ nghiêm ngặt định dạng cấu trúc Schema sau:
+
+* **Tên các trường tiêu đề (Header):** `student_code`, `full_name`, `email`, `phone_number`
+* **Quy ước dữ liệu:**
+  * `student_code` (*Bắt buộc*): Chuỗi định danh duy nhất (MSSV) - Dùng làm khóa chính đối soát câu lệnh Upsert.
+  * `full_name` (*Bắt buộc*): Họ và tên đầy đủ của sinh viên.
+  * `email` (*Bắt buộc*): Địa chỉ email trường học dùng để gửi vé QR và thông báo.
+  * `phone_number` (*Tùy chọn*): Số điện thoại liên hệ (có thể để trống).
+
+**Ví dụ nội dung file mẫu chuẩn (`students.csv`):**
+```csv
+student_code,full_name,email,phone_number
+23127001,Student 0001,23127001@student.unihub.edu.vn,0900000001
+21127002,Student 0002,21127002@student.unihub.edu.vn,0900000002
+21127003,Student 0003,21127003@student.unihub.edu.vn,
+```
+
 ### 🔑 Biến môi trường & API Keys
 
 Sao chép file `.env.example` ở thư mục gốc thành `.env.production` (cho Docker) hoặc vào `.env` trong từng module (cho chạy thủ công), sau đó điền đầy đủ các giá trị:
@@ -216,11 +234,18 @@ Sao chép file `.env.example` ở thư mục gốc thành `.env.production` (cho
 ### Phương án 1: Chạy bằng Docker (Khuyên dùng cho Production/Test nhanh)
 Chỉ với 1 lệnh duy nhất, Docker sẽ tự động build và chạy toàn bộ hệ thống (Frontend, Backend, AI Service, Database, Redis, Nginx).
 
-Trỏ đến file cấu hình môi trường production và khởi chạy:
+1. Khởi chạy cụm dịch vụ Web hệ thống:
 ```bash
 docker-compose --env-file .env.production up -d --build
 ```
 Sau khi chạy xong, truy cập Web App tại: http://localhost (Nginx đã tự động handle port 80).
+
+2. Khởi chạy ứng dụng Mobile để test với cụm Docker:
+* Mở **Android Studio** và chọn **Open** thư mục `mobile`, chờ sync Gradle hoàn tất.
+
+* Mở tab **Build Variants** (ở thanh công cụ dọc góc trái phía dưới), tại module `app`, đổi **Active Build Variant** sang **`dockerLocal`**. Hệ thống sẽ tự động bốc cấu hình `BASE_URL` trỏ thẳng về cổng Nginx `http://10.0.2.2/` của cụm Docker.
+
+* Kết nối thiết bị giả lập (Android Emulator) và nhấn nút **Run** để cài đặt app.
 
 ### Phương án 2: Chạy thủ công (Khuyên dùng cho Development)
 Bật các service bên thứ 3 (PostgreSQL, Redis) bằng Docker trước, sau đó chạy từng module:
@@ -246,15 +271,12 @@ npm install
 npm run dev
 ```
 
-4. Chạy ứng dụng Mobile bằng Android Studio:
+4. Khởi chạy ứng dụng Mobile kết nối với Backend Local:
+* Mở **Android Studio** và chọn **Open** thư mục `mobile`, chờ sync Gradle hoàn tất.
 
-- Mở **Android Studio** và chọn **Open** thư mục `mobile`.
-- Chờ Android Studio sync Gradle và tải dependencies cần thiết.
-- Đảm bảo Backend Core đang chạy tại port `8080`.
-- Chọn thiết bị chạy app:
-  - Nếu dùng Android Emulator, app đã cấu hình gọi backend qua `http://10.0.2.2:8080/`.
-  - Nếu dùng điện thoại thật, máy tính và điện thoại cần cùng mạng Wi-Fi; cập nhật `BASE_URL` trong `mobile/app/src/main/java/com/example/mobile/data/remote/RetrofitClient.java` sang IP LAN của máy tính, ví dụ `http://192.168.1.10:8080/`.
-- Nhấn **Run** trong Android Studio để build và cài app lên thiết bị.
+* Mở tab **Build Variants** (ở thanh công cụ dọc góc trái phía dưới), tại module `app`, đổi **Active Build Variant** sang **`manualDev`**. Hệ thống sẽ tự động bốc cấu hình `BASE_URL` trỏ về cổng dịch vụ chạy local `http://10.0.2.2:8080/`.
+
+* Kết nối thiết bị giả lập (Android Emulator) và nhấn nút **Run** để cài đặt app.
 
 ---
 <div align="center">

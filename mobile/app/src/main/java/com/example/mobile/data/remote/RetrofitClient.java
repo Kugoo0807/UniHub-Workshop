@@ -7,6 +7,7 @@ import com.example.mobile.LoginActivity;
 import com.example.mobile.data.remote.dto.AuthResponse;
 import com.example.mobile.data.remote.dto.RefreshTokenRequest;
 import com.example.mobile.util.TokenManager;
+import com.example.mobile.BuildConfig;
 
 import java.io.IOException;
 
@@ -21,7 +22,7 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class RetrofitClient {
     // For emulator testing, use 10.0.2.2. For physical device, use IP.
-    private static final String BASE_URL = "http://10.0.2.2:8080/";
+    private static final String BASE_URL = BuildConfig.BASE_URL;
     
     private static Retrofit retrofit = null;
 

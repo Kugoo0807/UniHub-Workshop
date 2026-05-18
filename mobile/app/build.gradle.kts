@@ -31,6 +31,29 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    flavorDimensions += "environment"
+
+    productFlavors {
+        create("manualDev") {
+            dimension = "environment"
+            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8080/\"")
+        }
+
+        create("dockerLocal") {
+            dimension = "environment"
+            buildConfigField("String", "BASE_URL", "\"http://10.0.2.2/\"")
+        }
+
+        create("realDevice") {
+            dimension = "environment"
+            buildConfigField("String", "BASE_URL", "\"http://192.168.1.45/\"")
+        }
+    }
 }
 
 dependencies {
