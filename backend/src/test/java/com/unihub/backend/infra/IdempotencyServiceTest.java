@@ -24,12 +24,19 @@ class IdempotencyServiceTest extends RedisIntegrationTestBase {
     }
 
     @Test
-    void markInFlightStoresStateWithTtl() {
-        idempotencyService.markInFlight("in-flight", Duration.ofSeconds(5));
+    void tryMarkInFlightStoresStateWithTtlAndPreventsDuplicates() {
+        // First attempt => TRUE
+        boolean firstAttempt = idempotencyService.tryMarkInFlight("in-flight", Duration.ofSeconds(5));
+
+        // Second attempt => FALSE (already in-flight)
+        boolean secondAttempt = idempotencyService.tryMarkInFlight("in-flight", Duration.ofSeconds(5));
 
         IdempotencyState state = idempotencyService.getState("in-flight");
         Long ttl = redis.getExpire("payment:in-flight", TimeUnit.SECONDS);
 
+        // Assertions
+        assertThat(firstAttempt).isTrue();
+        assertThat(secondAttempt).isFalse();
         assertThat(state).isEqualTo(IdempotencyState.IN_FLIGHT);
         assertThat(ttl).isNotNull();
         assertThat(ttl).isBetween(1L, 5L);

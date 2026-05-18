@@ -130,21 +130,27 @@ public class RegistrationService {
 
     @Transactional
     public PaymentResultResponse processPayment(Long workshopId, Long userId, String idempotencyKey) {
-        // Idempotency check
-        IdempotencyState state = idempotencyService.getState(idempotencyKey);
-        if (state == IdempotencyState.SUCCESS) {
-            Optional<Payment> existing = paymentRepository.findByIdempotencyKey(idempotencyKey);
-            if (existing.isPresent()) {
-                Registration reg = existing.get().getRegistration();
-                return PaymentResultResponse.success(existing.get().getTransactionId(), reg.getQrCode());
+        // Lock payment immediately
+        boolean lockAcquired = idempotencyService.tryMarkInFlight(idempotencyKey, Duration.ofMinutes(5));
+
+        if (!lockAcquired) {
+            IdempotencyState state = idempotencyService.getState(idempotencyKey);
+
+            if (state == IdempotencyState.IN_FLIGHT) {
+                // Another request is currently processing this payment. Inform the client to retry later.
+                throw new ConflictException("Payment is currently being processed");
+            }
+            if (state == IdempotencyState.SUCCESS) {
+                Optional<Payment> existing = paymentRepository.findByIdempotencyKey(idempotencyKey);
+                if (existing.isPresent()) {
+                    Registration reg = existing.get().getRegistration();
+                    return PaymentResultResponse.success(existing.get().getTransactionId(), reg.getQrCode());
+                }
+            }
+            if (state == IdempotencyState.FAILED) {
+                throw new PaymentFailedException("Previous payment attempt failed");
             }
         }
-
-        if (state == IdempotencyState.IN_FLIGHT) {
-            throw new ConflictException("Payment is currently being processed");
-        }
-
-        idempotencyService.markInFlight(idempotencyKey, Duration.ofMinutes(5));
 
         try {
             Optional<Payment> pOpt = paymentRepository.findByIdempotencyKey(idempotencyKey);

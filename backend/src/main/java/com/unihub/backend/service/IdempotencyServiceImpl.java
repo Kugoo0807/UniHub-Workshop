@@ -39,10 +39,10 @@ public class IdempotencyServiceImpl implements IdempotencyService {
     }
 
     @Override
-    public void markInFlight(String idempotencyKey, Duration ttl) {
+    public boolean tryMarkInFlight(String idempotencyKey, Duration ttl) {
         String key = buildKey(idempotencyKey);
-        redis.opsForValue().set(key, "IN_FLIGHT", ttl);
-        log.debug("Marked idempotency key as IN_FLIGHT: {}", idempotencyKey);
+        Boolean success = redis.opsForValue().setIfAbsent(key, "IN_FLIGHT", ttl);
+        return Boolean.TRUE.equals(success);
     }
 
     @Override

@@ -13,9 +13,9 @@ public interface IdempotencyService {
     IdempotencyState getState(String idempotencyKey);
 
     /**
-     * Mark a key as in-flight with a short TTL.
+     * Try to mark the operation as in-flight. Returns true if successful, false if the key already exists.
      */
-    void markInFlight(String idempotencyKey, Duration ttl);
+    boolean tryMarkInFlight(String idempotencyKey, Duration ttl);
 
     /**
      * Store the final result with TTL (typically 24h).

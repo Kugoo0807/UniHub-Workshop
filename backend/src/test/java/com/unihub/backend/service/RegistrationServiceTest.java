@@ -295,8 +295,7 @@ class RegistrationServiceTest {
     // Spec/API error 404 Not Found: Idempotency-Key has no matching payment record.
     void processPayment_missingPayment_releasesSeat_and_throwsNotFound() {
         String key = "missing-key";
-        when(idempotencyService.getState(key)).thenReturn(IdempotencyState.NOT_FOUND);
-        doNothing().when(idempotencyService).markInFlight(eq(key), any(Duration.class));
+        when(idempotencyService.tryMarkInFlight(eq(key), any(Duration.class))).thenReturn(true);
         when(paymentRepository.findByIdempotencyKey(key)).thenReturn(Optional.empty());
 
         // ensure workshop found so releaseSeat is called
@@ -318,8 +317,7 @@ class RegistrationServiceTest {
         Payment p = Payment.builder().id(40L).registration(reg).amount(1234L).idempotencyKey(key).status("PENDING")
                 .build();
 
-        when(idempotencyService.getState(key)).thenReturn(IdempotencyState.NOT_FOUND);
-        doNothing().when(idempotencyService).markInFlight(eq(key), any(Duration.class));
+        when(idempotencyService.tryMarkInFlight(eq(key), any(Duration.class))).thenReturn(true);
         when(paymentRepository.findByIdempotencyKey(key)).thenReturn(Optional.of(p));
         when(paymentGatewayClient.charge(1234L)).thenReturn(PaymentGatewayResult.builder()
                 .success(true).transactionId("tx-999").build());
@@ -342,8 +340,7 @@ class RegistrationServiceTest {
         Payment p = Payment.builder().id(60L).registration(reg).amount(2000L).idempotencyKey(key).status("PENDING")
                 .build();
 
-        when(idempotencyService.getState(key)).thenReturn(IdempotencyState.NOT_FOUND);
-        doNothing().when(idempotencyService).markInFlight(eq(key), any(Duration.class));
+        when(idempotencyService.tryMarkInFlight(eq(key), any(Duration.class))).thenReturn(true);
         when(paymentRepository.findByIdempotencyKey(key)).thenReturn(Optional.of(p));
         when(paymentGatewayClient.charge(2000L)).thenReturn(PaymentGatewayResult.builder()
                 .success(false).failureReason("card_declined").build());
@@ -367,8 +364,7 @@ class RegistrationServiceTest {
         Payment p = Payment.builder().id(80L).registration(reg).amount(3000L).idempotencyKey(key).status("PENDING")
                 .build();
 
-        when(idempotencyService.getState(key)).thenReturn(IdempotencyState.NOT_FOUND);
-        doNothing().when(idempotencyService).markInFlight(eq(key), any(Duration.class));
+        when(idempotencyService.tryMarkInFlight(eq(key), any(Duration.class))).thenReturn(true);
         when(paymentRepository.findByIdempotencyKey(key)).thenReturn(Optional.of(p));
         when(paymentGatewayClient.charge(3000L)).thenReturn(PaymentGatewayResult.builder()
                 .success(false).failureReason("payment_gateway_unavailable").build());
@@ -393,8 +389,7 @@ class RegistrationServiceTest {
         Payment p = Payment.builder().id(81L).registration(reg).amount(3000L).idempotencyKey(key).status("PENDING")
                 .build();
 
-        when(idempotencyService.getState(key)).thenReturn(IdempotencyState.NOT_FOUND);
-        doNothing().when(idempotencyService).markInFlight(eq(key), any(Duration.class));
+        when(idempotencyService.tryMarkInFlight(eq(key), any(Duration.class))).thenReturn(true);
         when(paymentRepository.findByIdempotencyKey(key)).thenReturn(Optional.of(p));
         when(paymentGatewayClient.charge(3000L)).thenReturn(PaymentGatewayResult.builder()
                 .success(false).failureReason("gateway_http_503").build());
@@ -417,8 +412,7 @@ class RegistrationServiceTest {
         Payment p = Payment.builder().id(82L).registration(reg).amount(3000L).idempotencyKey(key).status("PENDING")
                 .build();
 
-        when(idempotencyService.getState(key)).thenReturn(IdempotencyState.NOT_FOUND);
-        doNothing().when(idempotencyService).markInFlight(eq(key), any(Duration.class));
+        when(idempotencyService.tryMarkInFlight(eq(key), any(Duration.class))).thenReturn(true);
         when(paymentRepository.findByIdempotencyKey(key)).thenReturn(Optional.of(p));
 
         ConflictException ex = assertThrows(ConflictException.class,
