@@ -145,7 +145,7 @@ public class SeatLockingServiceImpl implements SeatLockingService {
                     : workshop.getTotalSlots();
             String maxKey = slotsKey + ":max";
             redis.opsForValue().set(slotsKey, String.valueOf(remainingSlots));
-            redis.opsForValue().set(maxKey, String.valueOf(remainingSlots));
+            redis.opsForValue().set(maxKey, String.valueOf(workshop.getTotalSlots()));
             log.warn("Recovered missing Redis slots for workshop={} from DB: remaining={}",
                     workshopId, remainingSlots);
         });
