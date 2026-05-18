@@ -19,6 +19,7 @@ import com.unihub.backend.dto.NotificationRecipient;
 public interface RegistrationRepository extends JpaRepository<Registration, Long> {
 
     boolean existsByWorkshopId(Long workshopId);
+    boolean existsByWorkshopIdAndStatusIn(Long workshopId, List<String> statuses);
     boolean existsByUserIdAndWorkshopId(Long userId, Long workshopId);
     java.util.Optional<Registration> findByUserIdAndWorkshopId(Long userId, Long workshopId);
     boolean existsByUserIdAndWorkshopIdAndStatusIn(Long userId, Long workshopId, List<String> statuses);
