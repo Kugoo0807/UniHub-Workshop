@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -21,6 +22,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Slf4j
 @ConditionalOnProperty(name = "app.payment-gateway.provider", havingValue = "MOCK", matchIfMissing = true)
+@Profile("!prod")
 public class MockPaymentGatewayClient implements PaymentGatewayClient {
 
     private final ObjectMapper objectMapper;

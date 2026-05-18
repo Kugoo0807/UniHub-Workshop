@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,6 +23,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/payments")
 @Slf4j
 @Tag(name = "Payments", description = "Payment gateway simulation endpoints.")
+@Profile("!prod")
 public class PaymentGatewayController {
 
     @PostMapping("/process")
