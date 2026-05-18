@@ -2,7 +2,7 @@ package com.unihub.backend.controller;
 
 import com.unihub.backend.dto.PaymentRequest;
 import com.unihub.backend.dto.ErrorResponse;
-import com.unihub.backend.service.PaymentGatewayResult;
+import com.unihub.backend.dto.PaymentGatewayResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;

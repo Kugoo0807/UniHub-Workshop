@@ -1,10 +1,6 @@
 package com.unihub.backend.service;
 
-import com.unihub.backend.dto.IdempotencyResult;
-import com.unihub.backend.dto.PageResponse;
-import com.unihub.backend.dto.PaymentResultResponse;
-import com.unihub.backend.dto.RegistrationResponse;
-import com.unihub.backend.dto.UserRegistrationResponse;
+import com.unihub.backend.dto.*;
 import com.unihub.backend.entity.Payment;
 import com.unihub.backend.entity.Registration;
 import com.unihub.backend.entity.User;
@@ -325,7 +321,7 @@ class RegistrationServiceTest {
         when(idempotencyService.getState(key)).thenReturn(IdempotencyState.NOT_FOUND);
         doNothing().when(idempotencyService).markInFlight(eq(key), any(Duration.class));
         when(paymentRepository.findByIdempotencyKey(key)).thenReturn(Optional.of(p));
-        when(paymentGatewayClient.charge(1234L)).thenReturn(com.unihub.backend.service.PaymentGatewayResult.builder()
+        when(paymentGatewayClient.charge(1234L)).thenReturn(PaymentGatewayResult.builder()
                 .success(true).transactionId("tx-999").build());
 
         PaymentResultResponse resp = registrationService.processPayment(workshop.getId(), user.getId(), key);
@@ -349,7 +345,7 @@ class RegistrationServiceTest {
         when(idempotencyService.getState(key)).thenReturn(IdempotencyState.NOT_FOUND);
         doNothing().when(idempotencyService).markInFlight(eq(key), any(Duration.class));
         when(paymentRepository.findByIdempotencyKey(key)).thenReturn(Optional.of(p));
-        when(paymentGatewayClient.charge(2000L)).thenReturn(com.unihub.backend.service.PaymentGatewayResult.builder()
+        when(paymentGatewayClient.charge(2000L)).thenReturn(PaymentGatewayResult.builder()
                 .success(false).failureReason("card_declined").build());
 
         PaymentFailedException ex = assertThrows(PaymentFailedException.class,
@@ -374,7 +370,7 @@ class RegistrationServiceTest {
         when(idempotencyService.getState(key)).thenReturn(IdempotencyState.NOT_FOUND);
         doNothing().when(idempotencyService).markInFlight(eq(key), any(Duration.class));
         when(paymentRepository.findByIdempotencyKey(key)).thenReturn(Optional.of(p));
-        when(paymentGatewayClient.charge(3000L)).thenReturn(com.unihub.backend.service.PaymentGatewayResult.builder()
+        when(paymentGatewayClient.charge(3000L)).thenReturn(PaymentGatewayResult.builder()
                 .success(false).failureReason("payment_gateway_unavailable").build());
 
         assertThrows(PaymentGatewayUnavailableException.class,
@@ -400,7 +396,7 @@ class RegistrationServiceTest {
         when(idempotencyService.getState(key)).thenReturn(IdempotencyState.NOT_FOUND);
         doNothing().when(idempotencyService).markInFlight(eq(key), any(Duration.class));
         when(paymentRepository.findByIdempotencyKey(key)).thenReturn(Optional.of(p));
-        when(paymentGatewayClient.charge(3000L)).thenReturn(com.unihub.backend.service.PaymentGatewayResult.builder()
+        when(paymentGatewayClient.charge(3000L)).thenReturn(PaymentGatewayResult.builder()
                 .success(false).failureReason("gateway_http_503").build());
 
         assertThrows(PaymentGatewayUnavailableException.class,

@@ -2,9 +2,12 @@ package com.unihub.backend.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.unihub.backend.dto.PaymentGatewayResult;
 import com.unihub.backend.dto.PaymentRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -17,13 +20,13 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class RealPaymentGatewayClient implements PaymentGatewayClient {
+@ConditionalOnProperty(name = "app.payment-gateway.provider", havingValue = "MOCK", matchIfMissing = true)
+public class MockPaymentGatewayClient implements PaymentGatewayClient {
 
     private final ObjectMapper objectMapper;
-    private final PaymentGatewayCircuitBreaker circuitBreaker = new PaymentGatewayCircuitBreaker();
+    private final PaymentGatewayCircuitBreaker circuitBreaker;
 
-    // Hard-coded payment gateway URL as requested (do not read from env/config)
-    // Using 127.0.0.1 instead of localhost to avoid potential IPv6/DNS issues
+    @Value("${app.payment-gateway.url}")
     private final String paymentGatewayUrl = "http://127.0.0.1:8080/api/v1/payments/process";
 
     private final HttpClient httpClient = HttpClient.newBuilder()

@@ -1,6 +1,7 @@
 package com.unihub.backend.service;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -15,15 +16,21 @@ class PaymentGatewayCircuitBreakerTest {
     void opensAfterFailureThreshold() {
         // The circuit should stay CLOSED until the configured number of consecutive failures is reached.
         MutableClock clock = new MutableClock();
-        PaymentGatewayCircuitBreaker breaker = new PaymentGatewayCircuitBreaker(2, Duration.ofSeconds(30), clock);
+        PaymentGatewayCircuitBreaker breaker = new PaymentGatewayCircuitBreaker(3, Duration.ofSeconds(30), clock);
 
         assertTrue(breaker.tryAcquirePermission());
+
+        // Two failures
         breaker.recordFailure();
         assertEquals(PaymentGatewayCircuitBreaker.State.CLOSED, breaker.getState());
         assertTrue(breaker.tryAcquirePermission());
 
         breaker.recordFailure();
+        assertEquals(PaymentGatewayCircuitBreaker.State.CLOSED, breaker.getState());
+        assertTrue(breaker.tryAcquirePermission());
 
+        // Third failure should OPEN the circuit
+        breaker.recordFailure();
         assertEquals(PaymentGatewayCircuitBreaker.State.OPEN, breaker.getState());
         assertFalse(breaker.tryAcquirePermission());
     }
@@ -33,19 +40,23 @@ class PaymentGatewayCircuitBreakerTest {
         // After the open cooldown expires, one probe request is allowed in HALF_OPEN state.
         // A successful probe closes the circuit and normal traffic can resume.
         MutableClock clock = new MutableClock();
-        PaymentGatewayCircuitBreaker breaker = new PaymentGatewayCircuitBreaker(1, Duration.ofSeconds(30), clock);
+        PaymentGatewayCircuitBreaker breaker = new PaymentGatewayCircuitBreaker(3, Duration.ofSeconds(30), clock);
 
+        // Trigger the circuit to OPEN
+        breaker.recordFailure();
+        breaker.recordFailure();
         breaker.recordFailure();
         assertFalse(breaker.tryAcquirePermission());
 
         clock.advance(Duration.ofSeconds(31));
 
+        // First probe in HALF_OPEN state
         assertTrue(breaker.tryAcquirePermission());
         assertEquals(PaymentGatewayCircuitBreaker.State.HALF_OPEN, breaker.getState());
         assertFalse(breaker.tryAcquirePermission());
 
+        // Successful probe should CLOSE the circuit
         breaker.recordSuccess();
-
         assertEquals(PaymentGatewayCircuitBreaker.State.CLOSED, breaker.getState());
         assertTrue(breaker.tryAcquirePermission());
     }
@@ -54,14 +65,20 @@ class PaymentGatewayCircuitBreakerTest {
     void halfOpenFailureReopensCircuit() {
         // If the HALF_OPEN probe fails, the circuit reopens and blocks new calls again.
         MutableClock clock = new MutableClock();
-        PaymentGatewayCircuitBreaker breaker = new PaymentGatewayCircuitBreaker(1, Duration.ofSeconds(30), clock);
+        PaymentGatewayCircuitBreaker breaker = new PaymentGatewayCircuitBreaker(3, Duration.ofSeconds(30), clock);
 
+        // Trigger the circuit to OPEN
         breaker.recordFailure();
+        breaker.recordFailure();
+        breaker.recordFailure();
+
         clock.advance(Duration.ofSeconds(31));
-        assertTrue(breaker.tryAcquirePermission());
 
+        // First probe in HALF_OPEN state fails, should reopen the circuit
+        assertTrue(breaker.tryAcquirePermission());
         breaker.recordFailure();
 
+        // Circuit should be OPEN again, blocking calls
         assertEquals(PaymentGatewayCircuitBreaker.State.OPEN, breaker.getState());
         assertFalse(breaker.tryAcquirePermission());
     }
