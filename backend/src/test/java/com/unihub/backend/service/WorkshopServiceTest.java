@@ -746,7 +746,7 @@ class WorkshopServiceTest {
                 existing.getRegistrationStartTime(), existing.getRegistrationEndTime());
 
         when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(existing));
-        when(registrationRepository.existsByWorkshopId(1L)).thenReturn(false);
+        when(registrationRepository.existsByWorkshopIdAndStatusIn(1L, List.of("SUCCESS", "PENDING"))).thenReturn(false);
         when(workshopRepository.save(any(Workshop.class))).thenAnswer(i -> i.getArgument(0));
 
         TransactionSynchronizationManager.initSynchronization();
@@ -770,12 +770,12 @@ class WorkshopServiceTest {
                 existing.getRegistrationStartTime(), existing.getRegistrationEndTime());
 
         when(workshopRepository.findByIdWithRoom(1L)).thenReturn(Optional.of(existing));
-        when(registrationRepository.existsByWorkshopId(1L)).thenReturn(true);
+        when(registrationRepository.existsByWorkshopIdAndStatusIn(1L, List.of("SUCCESS", "PENDING"))).thenReturn(true);
 
         TransactionSynchronizationManager.initSynchronization();
         try {
             ConflictException ex = assertThrows(ConflictException.class, () -> workshopService.updateWorkshop(1L, request));
-            assertTrue(ex.getMessage().contains("Cannot update price because this workshop already has registrations"));
+            assertTrue(ex.getMessage().contains("Cannot update price because this workshop already has active or successful registrations"));
         } finally {
             TransactionSynchronizationManager.clearSynchronization();
         }

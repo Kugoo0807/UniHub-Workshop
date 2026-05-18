@@ -234,10 +234,10 @@ public class WorkshopService {
             throw new ConflictException("Cannot reduce total slots below the number of successful registrations (" + successfulCount + ")");
         }
 
-        // Price change validation: Cannot change price if there are already registrations
+        // Price change validation: Cannot change price if there are already active or successful registrations
         if (request.price() != null && !request.price().equals(workshop.getPrice())) {
-            if (registrationRepository.existsByWorkshopId(id)) {
-                throw new ConflictException("Cannot update price because this workshop already has registrations");
+            if (registrationRepository.existsByWorkshopIdAndStatusIn(id, List.of("SUCCESS", "PENDING"))) {
+                throw new ConflictException("Cannot update price because this workshop already has active or successful registrations");
             }
         }
 

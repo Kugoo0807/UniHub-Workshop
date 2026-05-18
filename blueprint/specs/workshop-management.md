@@ -89,7 +89,7 @@ CREATE TABLE workshops (
 1. Client gửi `PUT /api/workshops/{id}` với JWT role `ADMIN`.
 2. Nếu `id` không tồn tại → trả `404`.
 3. Cho phép cập nhật: `title`, `description`, `room_id`, `speaker`, `status`, `total_slots`, `price`, `start_time`, `end_time`, `registration_start_time`, `registration_end_time`.
-   - **Ràng buộc giá vé (price):** KHÔNG CHO PHÉP thay đổi `price` nếu workshop đó đã có ít nhất một người đăng ký (bất kể trạng thái đăng ký là gì). Nếu có người đăng ký và yêu cầu thay đổi giá vé khác với giá hiện tại, hệ thống sẽ chặn và trả về lỗi `409 Conflict`.
+   - **Ràng buộc giá vé (price):** KHÔNG CHO PHÉP thay đổi `price` nếu workshop đó đang có sinh viên giữ chỗ hoặc đã mua vé thành công (tồn tại đăng ký ở trạng thái `PENDING` hoặc `SUCCESS`). Nếu vi phạm, hệ thống chặn và trả về lỗi `409 Conflict`.
 4. **Cho phép** thay đổi `total_slots` ngay cả khi đã có đăng ký, miễn là giá trị mới không nhỏ hơn số lượng sinh viên đã đăng ký thành công (`SUCCESS`).
 5. Khi cập nhật `total_slots` hoặc `room_id`, phải đảm bảo `total_slots <= rooms.capacity`.
 6. Nếu vi phạm các rule trên (ví dụ: `total_slots` vượt quá sức chứa phòng, nhỏ hơn số người đăng ký thành công, hoặc cố ý đổi giá vé khi đã có người đăng ký) → trả `409 Conflict`.
@@ -229,7 +229,7 @@ CREATE TABLE workshops (
 | `POST /api/workshops` — Student JWT | `403` | Spring Security chặn |
 | `PUT /api/workshops/{id}` — Thay đổi `total_slots` nhỏ hơn số lượng đã đăng ký SUCCESS | `409` | Service throw `ConflictException` |
 | `PUT /api/workshops/{id}` — Đổi sang phòng có `capacity` nhỏ hơn số lượng đã đăng ký SUCCESS | `409` | Service throw `ConflictException` (do `total_slots` phải >= SUCCESS và `total_slots` <= `capacity`) |
-| `PUT /api/workshops/{id}` — Thay đổi `price` khi đã có người đăng ký | `409` | Service throw `ConflictException` — "Cannot update price because this workshop already has registrations" |
+| `PUT /api/workshops/{id}` — Thay đổi `price` khi đã có người đăng ký ở trạng thái PENDING hoặc SUCCESS | `409` | Service throw `ConflictException` — "Cannot update price because this workshop already has active or successful registrations" |
 | `PUT /api/workshops/{id}/cancel` — Workshop ở trạng thái `DRAFT` | `400` | Service throw `IllegalArgumentException` — "Cannot cancel a DRAFT workshop. Use DELETE to remove it instead." |
 | `PUT /api/workshops/{id}/cancel` — Workshop đã `COMPLETED` hoặc `CANCELLED` | `400` | Service throw `IllegalArgumentException` |
 | `DELETE /api/workshops/{id}` — Workshop không ở trạng thái `DRAFT` | `409` | Service throw `ConflictException` — "Only DRAFT workshops can be deleted" |
@@ -357,7 +357,7 @@ public record WorkshopRequest(
 | `WM-UT-05` | Xóa workshop ở trạng thái `DRAFT` | DELETE DB, DEL Redis key |
 | `WM-UT-06` | Cập nhật `total_slots` nhỏ hơn số lượng SUCCESS | Throw `ConflictException` |
 | `WM-UT-12` | Cập nhật `total_slots` hợp lệ khi đã có SUCCESS | Update thành công, tính toán lại `remaining_slots` theo delta |
-| `WM-UT-13` | Cập nhật `price` khi đã có người đăng ký | Throw `ConflictException` (409) — "Cannot update price because this workshop already has registrations" |
+| `WM-UT-13` | Cập nhật `price` khi đã có người đăng ký SUCCESS/PENDING | Throw `ConflictException` (409) — "Cannot update price because this workshop already has active or successful registrations" |
 | `WM-UT-07` | Lấy chi tiết workshop không tồn tại | Throw `ResourceNotFoundException` (404) |
 | `WM-UT-08` | Hủy workshop ở trạng thái `PUBLISHED` có đăng ký SUCCESS/PENDING | Bulk-cancel registrations, giữ nguyên COMPLETED payments, xóa Redis key |
 | `WM-UT-09` | Hủy workshop đã `COMPLETED` | Throw `IllegalArgumentException` (400) |
