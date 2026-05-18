@@ -4,6 +4,7 @@
 
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-6DB33F?style=for-the-badge&logo=spring-boot&logoColor=white)
 ![Java](https://img.shields.io/badge/Java-ED8B00?style=for-the-badge&logo=openjdk&logoColor=white)
+![Flyway](https://img.shields.io/badge/Flyway-CC292B?style=for-the-badge&logo=flyway&logoColor=white)
 
 ![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
 ![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
@@ -23,6 +24,12 @@
 ![Cloudinary](https://img.shields.io/badge/Cloudinary-3448C5?style=for-the-badge&logo=cloudinary&logoColor=white)
 
 **UniHub-Workshop** là một hệ thống quản lý hội thảo (workshop) toàn diện dành cho môi trường đại học. Hệ thống hỗ trợ từ việc quản lý địa điểm (phòng học/hội trường), lập lịch workshop, đăng ký tham gia, điểm danh bằng mã QR, đến việc tự động tóm tắt nội dung bằng AI.
+
+---
+
+## 🔗 Liên kết nhanh
+- 📄 [Blueprint](https://drive.google.com/drive/folders/1cKgB-buJDQvog3P02lBZTxNDPbDDy86R?usp=sharing)
+- 🎬 [Video Demo & Thuyết trình kỹ thuật](https://drive.google.com/drive/folders/1GFWAC2gP68ShdT7M_0InvqLOBS9Fpt79?usp=sharing)
 
 ---
 
@@ -61,34 +68,34 @@
 
 - **Tự phục hồi & Chịu lỗi (Fault Tolerance):** Tích hợp Circuit Breaker bảo vệ luồng chính không bị sập dây chuyền khi cổng thanh toán hoặc các API bên ngoài gặp sự cố (Timeout/Unavailable).
 
-- **Hệ thống thông báo Đa kênh:** Phát luồng sự kiện bất đồng bộ (Event-Driven) để gửi thông báo qua Email, Telegram và In-app khi đăng ký thành công, nhắc lịch lúc 18h hằng ngày hoặc khi workshop bị hủy.
+- **Hệ thống thông báo Đa kênh:** Phát luồng sự kiện bất đồng bộ để gửi thông báo qua Email, Telegram và In-app khi đăng ký thành công, nhắc lịch lúc 18h hằng ngày hoặc khi workshop bị hủy.
+
+- **Đồng bộ sinh viên:** Tự động đồng bộ danh sách sinh viên từ file CSV trên Supabase Storage.
 
 ### 👨‍💼 Quản trị viên (Admin Dashboard)
 - **Quản lý Workshop:** Tạo, chỉnh sửa, xuất bản hoặc hủy các workshop. Theo dõi trạng thái thời gian thực.
 
-- **Quản lý Phòng:** Quản lý sức chứa và sơ đồ mặt bằng (floor maps) được lưu trữ trên Cloudinary.
+- **Quản lý Phòng:** Quản lý sức chứa và sơ đồ phòng được lưu trữ trên Cloudinary.
 
 - **AI Summary:** Tự động tóm tắt nội dung và trích xuất tên diễn giả từ file PDF giới thiệu workshop bằng mô hình ngôn ngữ lớn (LLM).
 
-- **Thống kê chuyên sâu:** Theo dõi doanh thu, tỷ lệ lấp đầy phòng và xu hướng đăng ký thông qua biểu đồ trực quan (Recharts).
-
-- **Đồng bộ sinh viên:** Tự động đồng bộ danh sách sinh viên từ file CSV trên Supabase Storage.
+- **Thống kê chuyên sâu:** Theo dõi doanh thu, tỷ lệ lấp đầy phòng và xu hướng đăng ký thông qua biểu đồ trực quan.
 
 ### 🎓 Sinh viên (Student Dashboard)
-- **Khám phá Workshop:** Xem danh sách các workshop sắp diễn ra, lọc theo chủ đề hoặc thời gian.
+- **Khám phá Workshop:** Khám phá danh sách workshop đang diễn ra thông qua giao diện trực quan.
 
-- **Đăng ký & Thanh toán:** Quy trình đăng ký nhanh chóng với tích hợp giả lập cổng thanh toán.
+- **Đăng ký & Thanh toán:** Đăng ký nhanh với tích hợp thanh toán giả lập; hỗ trợ giữ chỗ tạm thời trong khi xử lý giao dịch. (Dễ dàng nâng cấp lên cổng thanh toán thực tế chỉ với việc thay đổi các thuộc tính hệ thống).
 
 - **Điểm danh:** Sử dụng mã QR để điểm danh nhanh tại sảnh workshop.
 
 - **Theo dõi lịch trình:** Quản lý danh sách các workshop đã đăng ký và trạng thái thanh toán.
 
-- **Liên kết Telegram:** Kết nối tài khoản UniHub với Telegram bot của hệ thống chỉ bằng 1 cú click và nhận thông báo trực tiếp qua tài khoản Telegram này.
+- **Liên kết Telegram:** Kết nối tài khoản UniHub với Telegram bot của hệ thống và nhận thông báo trực tiếp qua tài khoản Telegram này.
 
 ### 📱 Nhân sự check-in (Android Offline-First)
 - **Quét mã QR Offline-first:** Ứng dụng Android cho phép tải trước danh sách mã QR hợp lệ về thiết bị (SQLite), hỗ trợ nhân viên quét mã điểm danh mượt mà ngay cả khi mất kết nối mạng (No Internet).
 
-- **Đồng bộ thông minh:** Tự động phát hiện khi có mạng và đồng bộ dữ liệu điểm danh lên máy chủ (PostgreSQL) theo batch, hoặc cho phép đồng bộ thủ công.
+- **Đồng bộ thông minh:** Đồng bộ dữ liệu điểm danh lên máy chủ theo batch khi có mạng trở lại.
 
 - **Kiểm tra gian lận vé:** Phát hiện ngay lập tức vé giả, vé không thuộc sự kiện hoặc vé đã được quét trước đó (tránh check-in trùng lặp).
 
@@ -248,7 +255,7 @@ Sau khi chạy xong, truy cập Web App tại: http://localhost (Nginx đã tự
 * Kết nối thiết bị giả lập (Android Emulator) và nhấn nút **Run** để cài đặt app.
 
 ### Phương án 2: Chạy thủ công (Khuyên dùng cho Development)
-Bật các service bên thứ 3 (PostgreSQL, Redis) bằng Docker trước, sau đó chạy từng module:
+Bật các service bên thứ 3 (Redis) bằng Docker trước, sau đó chạy từng module:
 
 1. Khởi động AI Microservice (FastAPI):
 ```bash
@@ -278,9 +285,18 @@ npm run dev
 
 * Kết nối thiết bị giả lập (Android Emulator) và nhấn nút **Run** để cài đặt app.
 
+### 👥 Tài khoản kiểm thử mẫu
+Hệ thống đã cấu hình sẵn các tài khoản demo nhờ cơ chế Database Migration của Flyway:
+
+| Vai trò (Role) | Email tài khoản | Mật khẩu |
+|---|---|---|
+| **Admin** (Ban tổ chức) | `admin@unihub.edu.vn` | `password123` |
+| **Staff** (Nhân sự check-in) | `staff@unihub.edu.vn` | `password123` |
+| **Student** (Sinh viên) | `21127001@student.unihub.edu.vn` | `password123` |
+
 ---
 <div align="center">
-  <b>Develped by the UniHub Team</b><br>
+  <b>Developed by the UniHub Team</b><br>
   <i>Advanced Agentic Coding Project - 2026</i><br><br>
   
   [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
